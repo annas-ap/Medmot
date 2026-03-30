@@ -52,7 +52,9 @@ export default function App() {
         dynamicTyping: true,
         skipEmptyLines: true,
         complete: (results) => {
-          setData(results.data);
+          // Filter out rows that don't have a title (JUDUL) to remove empty trailing rows
+          const validData = results.data.filter((row: any) => row['JUDUL'] && String(row['JUDUL']).trim() !== '');
+          setData(validData);
           setLoading(false);
           setError(null); // Clear error on successful fetch
         },
@@ -234,6 +236,9 @@ export default function App() {
       if (sentimenRaw.toLowerCase() === 'positif') sentimen = 'Positif';
       if (sentimenRaw.toLowerCase() === 'negatif') sentimen = 'Negatif';
 
+      const urlFotoRaw = String(row['URL FOTO'] || '').trim();
+      const urlRaw = String(row['LINK URL'] || '').trim();
+
       return {
         id: i,
         judul: String(row['JUDUL'] || 'Tanpa Judul'),
@@ -242,8 +247,8 @@ export default function App() {
         sentimen: sentimen,
         tanggal: String(row['TANGGAL'] || ''),
         reach: '-', // No reach data in CSV
-        url: String(row['LINK URL'] || ''),
-        urlFoto: String(row['URL FOTO'] || ''),
+        url: urlRaw !== 'undefined' && urlRaw !== '' ? urlRaw : '',
+        urlFoto: urlFotoRaw !== 'undefined' && urlFotoRaw !== '' ? urlFotoRaw : '',
         isiBerita: String(row['ISI BERITA'] || ''),
         analisis: String(row['ANALISIS'] || '')
       };
@@ -304,11 +309,14 @@ export default function App() {
       
     const total = sorted.reduce((sum, item) => sum + item[1], 0);
     
-    return sorted.map(([name, count]) => ({
-      name,
-      count,
-      pct: total > 0 ? Math.round((count / total) * 100) : 0
-    }));
+    return {
+      totalUnique: Object.keys(mediaCounts).length,
+      list: sorted.map(([name, count]) => ({
+        name,
+        count,
+        pct: total > 0 ? Math.round((count / total) * 100) : 0
+      }))
+    };
   }, [displayData]);
 
   // Format date for header
@@ -468,7 +476,7 @@ export default function App() {
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-blue-50/50 border-2 border-blue-400 p-4 rounded-xl">
           {/* Total Berita */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
             <div className="flex justify-between items-start mb-2">
@@ -478,9 +486,9 @@ export default function App() {
               </div>
             </div>
             <div className="text-3xl font-bold text-gray-800 mb-2">{totalBerita.toLocaleString('id-ID')}</div>
-            <div className="flex items-center text-xs text-green-600 font-medium">
+            <div className="flex items-center text-xs text-gray-500 font-medium">
               <TrendingUp className="w-3 h-3 mr-1" />
-              +12.4% vs bulan lalu
+              Berdasarkan filter saat ini
             </div>
           </div>
 
@@ -543,7 +551,7 @@ export default function App() {
                 <Globe className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-800 mb-2">237</div>
+            <div className="text-3xl font-bold text-gray-800 mb-2">{topMedia.totalUnique.toLocaleString('id-ID')}</div>
             <div className="text-xs text-gray-500 flex items-center">
               <LayoutDashboard className="w-3 h-3 mr-1" />
               Online • Print • Broadcast
