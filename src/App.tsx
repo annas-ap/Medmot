@@ -9,10 +9,19 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line,
   PieChart, Pie, Cell
 } from 'recharts';
-import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon } from 'lucide-react';
-import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip } from 'react-leaflet';
+import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown } from 'lucide-react';
+import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import NewsDetailPage from './components/NewsDetailPage';
+import ReportGenerator from './components/ReportGenerator';
+
+function MapZoomer({ center, zoom }: { center: [number, number], zoom: number }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, zoom);
+  }, [center, zoom, map]);
+  return null;
+}
 
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTwKZEQ0e2BA_HW7H_e-Og2aNP5DS5miZPbaD-raEMlcRC8JZNULqPjEctCqOBsJ763J4xnbTjVlq_L/pub?gid=0&single=true&output=csv";
 
@@ -27,6 +36,50 @@ const COLORS = {
   ticker: '#111827',   // Gray 900
 };
 
+const parseIndonesianDate = (dateStr: string) => {
+  const months: Record<string, number> = {
+    'januari': 0, 'jan': 0,
+    'februari': 1, 'feb': 1,
+    'maret': 2, 'mar': 2,
+    'april': 3, 'apr': 3,
+    'mei': 4,
+    'juni': 5, 'jun': 5,
+    'juli': 6, 'jul': 6,
+    'agustus': 7, 'ags': 7, 'aug': 7,
+    'september': 8, 'sep': 8,
+    'oktober': 9, 'okt': 9, 'oct': 9,
+    'november': 10, 'nov': 10,
+    'desember': 11, 'des': 11, 'dec': 11
+  };
+  const parts = dateStr.toLowerCase().split(' ');
+  let day = 1;
+  let month = 0;
+  let year = new Date().getFullYear();
+  for (const part of parts) {
+    const cleanPart = part.replace(',', '');
+    if (!isNaN(parseInt(cleanPart))) {
+      if (cleanPart.length === 4) {
+        year = parseInt(cleanPart);
+      } else {
+        day = parseInt(cleanPart);
+      }
+    } else if (months[cleanPart] !== undefined) {
+      month = months[cleanPart];
+    }
+  }
+  return new Date(year, month, day);
+};
+
+const KAB_KOTA_JABAR = [
+  "Kabupaten Bogor", "Kabupaten Sukabumi", "Kabupaten Cianjur", "Kabupaten Bandung",
+  "Kabupaten Garut", "Kabupaten Tasikmalaya", "Kabupaten Ciamis", "Kabupaten Kuningan",
+  "Kabupaten Cirebon", "Kabupaten Majalengka", "Kabupaten Sumedang", "Kabupaten Indramayu",
+  "Kabupaten Subang", "Kabupaten Purwakarta", "Kabupaten Karawang", "Kabupaten Bekasi",
+  "Kabupaten Bandung Barat", "Kabupaten Pangandaran", "Kota Bogor", "Kota Sukabumi",
+  "Kota Bandung", "Kota Cirebon", "Kota Bekasi", "Kota Depok", "Kota Cimahi",
+  "Kota Tasikmalaya", "Kota Banjar"
+];
+
 export default function App() {
   const [data, setData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +88,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('Semua');
   const [timeFilter, setTimeFilter] = useState('7 Hari');
   const [regionFilter, setRegionFilter] = useState('Semua');
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-6.9147, 107.6098]);
+  const [mapZoom, setMapZoom] = useState(8);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   // Fetch data
   const fetchData = async (isInitial = false) => {
@@ -96,19 +152,43 @@ export default function App() {
   // but base it on the actual data rows.
   const displayData = useMemo(() => {
     let result = [...filteredDataByRegion];
-    // Sort by row index descending (assuming newer rows are at the bottom or top)
-    // Actually, let's just reverse it so newest is first if appended at bottom
-    result = result.reverse();
+    
+    // Sort by date descending
+    result.sort((a, b) => {
+      const dateA = parseIndonesianDate(a['TANGGAL'] || '');
+      const dateB = parseIndonesianDate(b['TANGGAL'] || '');
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    const now = currentTime;
     
     if (timeFilter === 'Hari Ini') {
-      result = result.slice(0, Math.max(1, Math.floor(result.length * 0.1)));
+      result = result.filter(row => {
+        const date = parseIndonesianDate(row['TANGGAL'] || '');
+        return date.toDateString() === now.toDateString();
+      });
     } else if (timeFilter === '7 Hari') {
-      result = result.slice(0, Math.max(1, Math.floor(result.length * 0.5)));
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      result = result.filter(row => {
+        const date = parseIndonesianDate(row['TANGGAL'] || '');
+        return date >= sevenDaysAgo && date <= now;
+      });
     } else if (timeFilter === '30 Hari') {
-      result = result.slice(0, Math.max(1, Math.floor(result.length * 0.8)));
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      result = result.filter(row => {
+        const date = parseIndonesianDate(row['TANGGAL'] || '');
+        return date >= thirtyDaysAgo && date <= now;
+      });
+    } else if (timeFilter === 'Tahun Ini') {
+      result = result.filter(row => {
+        const date = parseIndonesianDate(row['TANGGAL'] || '');
+        return date.getFullYear() === now.getFullYear();
+      });
     }
     return result;
-  }, [filteredDataByRegion, timeFilter]);
+  }, [filteredDataByRegion, timeFilter, currentTime]);
 
   const totalBerita = displayData.length;
   
@@ -246,6 +326,9 @@ export default function App() {
         destinasi: String(row['KAB/KOTA'] || 'Jawa Barat'),
         sentimen: sentimen,
         tanggal: String(row['TANGGAL'] || ''),
+        year: parseIndonesianDate(row['TANGGAL'] || '').getFullYear(),
+        pic: String(row['PIC'] || 'Unknown'),
+        by: String(row['BY'] || 'Unknown'),
         reach: '-', // No reach data in CSV
         url: urlRaw !== 'undefined' && urlRaw !== '' ? urlRaw : '',
         urlFoto: urlFotoRaw !== 'undefined' && urlFotoRaw !== '' ? urlFotoRaw : '',
@@ -317,6 +400,36 @@ export default function App() {
         pct: total > 0 ? Math.round((count / total) * 100) : 0
       }))
     };
+  }, [displayData]);
+
+  // Top PICs
+  const topPICs = useMemo(() => {
+    const picCounts: Record<string, number> = {};
+    displayData.forEach(row => {
+      const pic = String(row['PIC'] || 'Unknown').trim();
+      if (pic) {
+        picCounts[pic] = (picCounts[pic] || 0) + 1;
+      }
+    });
+    return Object.entries(picCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+  }, [displayData]);
+
+  // Top BYs
+  const topBYs = useMemo(() => {
+    const byCounts: Record<string, number> = {};
+    displayData.forEach(row => {
+      const by = String(row['BY'] || 'Unknown').trim();
+      if (by) {
+        byCounts[by] = (byCounts[by] || 0) + 1;
+      }
+    });
+    return Object.entries(byCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
   }, [displayData]);
 
   // Format date for header
@@ -395,67 +508,85 @@ export default function App() {
       </header>
 
       {/* Breaking News Ticker */}
-      <div className="bg-[#111827] text-white px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap">
-        <div className="flex items-center gap-2 font-bold text-blue-400 mr-4 shrink-0">
+      <div className="bg-gray-900 text-white px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap border-b border-gray-800">
+        <div className="flex items-center gap-2 font-bold text-red-500 mr-6 shrink-0 z-10 bg-gray-900 pr-4">
           <Radio className="w-4 h-4 animate-pulse" />
           BREAKING
         </div>
-        <div className="animate-[marquee_30s_linear_infinite] inline-block">
-          <span className="mx-4">sata Pangandaran masih jadi sorotan media •</span>
-          <span className="mx-4 text-red-400">🔴 Kebersihan objek wisata Lembang dikeluhkan pengunjung di media sosial •</span>
-          <span className="mx-4 text-green-400">🟢 Branding "Explore West Java" mendapat respons positif di platform digital •</span>
-          <span className="mx-4 text-yellow-400">🟡 Tiket masuk objek wisata...</span>
+        <div className="animate-[marquee_60s_linear_infinite] inline-block">
+          {recentNews.length > 0 ? (
+            recentNews.slice(0, 10).map((news, idx) => (
+              <span 
+                key={idx} 
+                className={`mx-4 ${
+                  news.sentimen === 'Positif' ? 'text-green-400' : 
+                  news.sentimen === 'Negatif' ? 'text-red-400' : 
+                  'text-gray-300'
+                }`}
+              >
+                {news.judul} •
+              </span>
+            ))
+          ) : (
+            <span className="mx-4 text-gray-400">Memuat berita terbaru...</span>
+          )}
         </div>
       </div>
 
       <main className="p-6 max-w-[1600px] mx-auto space-y-6">
         {/* Filter Bar */}
         <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex flex-col gap-4 w-full">
-            {/* Filter Waktu */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-bold text-gray-800">Waktu:</h2>
+          <div className="flex flex-col md:flex-row gap-4 w-full justify-between items-start md:items-center">
+            <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
+              {/* Filter Waktu */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  <h2 className="text-sm font-bold text-gray-800">Waktu:</h2>
+                </div>
+                <div className="flex flex-wrap bg-gray-50 border border-gray-200 rounded-lg p-1">
+                  {['Hari Ini', '7 Hari', '30 Hari', 'Tahun Ini'].map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => setTimeFilter(filter)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        timeFilter === filter 
+                          ? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
+                          : 'text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap bg-gray-50 border border-gray-200 rounded-lg p-1">
-                {['Hari Ini', '7 Hari', '30 Hari', 'Tahun Ini'].map(filter => (
-                  <button
-                    key={filter}
-                    onClick={() => setTimeFilter(filter)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      timeFilter === filter 
-                        ? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
-                        : 'text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    {filter}
-                  </button>
-                ))}
-              </div>
-            </div>
 
-            {/* Filter Wilayah */}
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-blue-600" />
-                <h2 className="text-sm font-bold text-gray-800">Wilayah:</h2>
+              {/* Filter Wilayah */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  <h2 className="text-sm font-bold text-gray-800">Wilayah:</h2>
+                </div>
+                <select 
+                  value={regionFilter}
+                  onChange={(e) => setRegionFilter(e.target.value)}
+                  className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto"
+                >
+                  <option value="Semua">Semua Kabupaten/Kota</option>
+                  {KAB_KOTA_JABAR.map(kabKota => (
+                    <option key={kabKota} value={kabKota}>{kabKota}</option>
+                  ))}
+                </select>
               </div>
-              <select 
-                value={regionFilter}
-                onChange={(e) => setRegionFilter(e.target.value)}
-                className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto"
-              >
-                <option value="Semua">Semua Kabupaten/Kota</option>
-                <option value="Kota Bandung">Kota Bandung</option>
-                <option value="Kab. Bogor">Kab. Bogor</option>
-                <option value="Kab. Garut">Kab. Garut</option>
-                <option value="Pangandaran">Pangandaran</option>
-                <option value="Lembang">Lembang</option>
-                <option value="Kota Cirebon">Kota Cirebon</option>
-                <option value="Kota Depok">Kota Depok</option>
-              </select>
             </div>
+            
+            <button
+              onClick={() => setIsReportModalOpen(true)}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full md:w-auto justify-center"
+            >
+              <FileDown className="w-4 h-4" />
+              Generate Laporan
+            </button>
           </div>
           
           {/* Search Bar */}
@@ -491,68 +622,62 @@ export default function App() {
           </div>
 
           {/* Sentimen Positif */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Sentimen Positif</h3>
-              <div className="p-1.5 bg-green-50 rounded-md text-green-600">
-                <Smile className="w-4 h-4" />
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Positif</h3>
+              <div className="p-2 bg-green-50 rounded-lg text-green-600">
+                <Smile className="w-5 h-5" />
               </div>
             </div>
             <div className="text-3xl font-bold text-green-600 mb-2">{sentimentCounts.positif.toLocaleString('id-ID')}</div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mr-2">
-                <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${pctPos}%` }}></div>
-              </div>
-              <span>{pctPos}%</span>
+            <div className="flex items-center text-xs text-gray-400">
+              <span className="font-medium text-green-600">{pctPos}%</span>
+              <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Sentimen Netral */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Sentimen Netral</h3>
-              <div className="p-1.5 bg-yellow-50 rounded-md text-yellow-600">
-                <Meh className="w-4 h-4" />
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Netral</h3>
+              <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600">
+                <Meh className="w-5 h-5" />
               </div>
             </div>
             <div className="text-3xl font-bold text-yellow-500 mb-2">{sentimentCounts.netral.toLocaleString('id-ID')}</div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mr-2">
-                <div className="bg-yellow-500 h-1.5 rounded-full" style={{ width: `${pctNeu}%` }}></div>
-              </div>
-              <span>{pctNeu}%</span>
+            <div className="flex items-center text-xs text-gray-400">
+              <span className="font-medium text-yellow-500">{pctNeu}%</span>
+              <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Sentimen Negatif */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Sentimen Negatif</h3>
-              <div className="p-1.5 bg-red-50 rounded-md text-red-600">
-                <Frown className="w-4 h-4" />
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Negatif</h3>
+              <div className="p-2 bg-red-50 rounded-lg text-red-600">
+                <Frown className="w-5 h-5" />
               </div>
             </div>
             <div className="text-3xl font-bold text-red-500 mb-2">{sentimentCounts.negatif.toLocaleString('id-ID')}</div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <div className="w-full bg-gray-100 rounded-full h-1.5 mr-2">
-                <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${pctNeg}%` }}></div>
-              </div>
-              <span>{pctNeg}%</span>
+            <div className="flex items-center text-xs text-gray-400">
+              <span className="font-medium text-red-500">{pctNeg}%</span>
+              <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Media Terpantau */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Media Terpantau</h3>
-              <div className="p-1.5 bg-purple-50 rounded-md text-purple-600">
-                <Globe className="w-4 h-4" />
+              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Media Terpantau</h3>
+              <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+                <Globe className="w-5 h-5" />
               </div>
             </div>
             <div className="text-3xl font-bold text-gray-800 mb-2">{topMedia.totalUnique.toLocaleString('id-ID')}</div>
-            <div className="text-xs text-gray-500 flex items-center">
-              <LayoutDashboard className="w-3 h-3 mr-1" />
-              Online • Print • Broadcast
+            <div className="text-xs text-gray-400">
+              <span className="font-medium text-gray-600">Sumber</span>
+              <span className="ml-1">media aktif</span>
             </div>
           </div>
         </div>
@@ -657,11 +782,12 @@ export default function App() {
             </div>
             <div className="flex-1 min-h-[300px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0">
               <MapContainer 
-                center={[-6.9147, 107.6098]} // Center of West Java
-                zoom={8} 
+                center={mapCenter}
+                zoom={mapZoom}
                 style={{ height: '100%', width: '100%' }}
                 scrollWheelZoom={false}
               >
+                <MapZoomer center={mapCenter} zoom={mapZoom} />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -688,6 +814,13 @@ export default function App() {
                         fillOpacity: 0.6, 
                         color: color, 
                         weight: 1 
+                      }}
+                      eventHandlers={{
+                        click: () => {
+                          setRegionFilter(loc.name);
+                          setMapCenter([loc.lat, loc.lng]);
+                          setMapZoom(11);
+                        }
                       }}
                     >
                       <LeafletTooltip direction="top" offset={[0, -10]} opacity={1}>
@@ -719,9 +852,6 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-gray-500 text-xs">{dest.count.toLocaleString('id-ID')} berita</span>
-                      {dest.trend === 'up' && <div className="w-4 h-4 rounded bg-green-100 text-green-600 flex items-center justify-center text-[10px]">↑</div>}
-                      {dest.trend === 'down' && <div className="w-4 h-4 rounded bg-red-100 text-red-600 flex items-center justify-center text-[10px]">↓</div>}
-                      {dest.trend === 'neutral' && <div className="w-4 h-4 rounded bg-yellow-100 text-yellow-600 flex items-center justify-center text-[10px]">-</div>}
                     </div>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-1.5">
@@ -730,6 +860,32 @@ export default function App() {
                       style={{ width: `${(dest.count / dest.max) * 100}%` }}
                     ></div>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* PIC & BY Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 PIC</h2>
+            <div className="space-y-3">
+              {topPICs.map((pic, idx) => (
+                <div key={idx} className="flex justify-between items-center text-sm">
+                  <span className="font-medium text-gray-700">{pic.name}</span>
+                  <span className="text-gray-500">{pic.count} berita</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 BY</h2>
+            <div className="space-y-3">
+              {topBYs.map((by, idx) => (
+                <div key={idx} className="flex justify-between items-center text-sm">
+                  <span className="font-medium text-gray-700">{by.name}</span>
+                  <span className="text-gray-500">{by.count} berita</span>
                 </div>
               ))}
             </div>
@@ -769,7 +925,7 @@ export default function App() {
                     <th className="px-5 py-3 font-medium">Media</th>
                     <th className="px-5 py-3 font-medium">Destinasi</th>
                     <th className="px-5 py-3 font-medium">Sentimen</th>
-                    <th className="px-5 py-3 font-medium">Tanggal</th>
+                    <th className="px-5 py-3 font-medium">Tanggal (Tahun)</th>
                     <th className="px-5 py-3 font-medium text-right">Reach</th>
                   </tr>
                 </thead>
@@ -792,7 +948,7 @@ export default function App() {
                           {news.sentimen}
                         </span>
                       </td>
-                      <td className="px-5 py-3 text-gray-400 text-xs">{news.tanggal}</td>
+                      <td className="px-5 py-3 text-gray-400 text-xs">{news.tanggal} {news.year}</td>
                       <td className="px-5 py-3 text-gray-800 font-medium text-right">{news.reach}</td>
                     </tr>
                   ))}
@@ -823,26 +979,46 @@ export default function App() {
             </div>
 
             {/* Sumber Media Terbanyak */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex-1">
-              <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 lg:col-span-3">
+              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
                 <BarChart2 className="w-4 h-4 text-blue-500" /> Sumber Media Terbanyak
               </h2>
-              <div className="space-y-4">
-                {[
-                  { name: 'Detik.com', count: 642, pct: 85 },
-                  { name: 'Kompas.com', count: 541, pct: 70 },
-                  { name: 'Tribun Jabar', count: 453, pct: 60 },
-                  { name: 'Pikiran Rakyat', count: 312, pct: 40 },
-                  { name: 'CNN Indonesia', count: 289, pct: 35 },
-                ].map((media, i) => (
-                  <div key={i} className="flex items-center text-sm">
-                    <div className="w-24 text-gray-600 truncate text-xs">{media.name}</div>
-                    <div className="flex-1 mx-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="space-y-3">
+                {topMedia.list.map((media, i) => (
+                  <div key={i} className="flex items-center gap-3 text-sm">
+                    <div className="w-32 text-gray-700 truncate text-xs font-medium">{media.name}</div>
+                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
                       <div className="h-full bg-blue-600 rounded-full" style={{ width: `${media.pct}%` }}></div>
                     </div>
-                    <div className="w-8 text-right font-medium text-gray-800 text-xs">{media.count}</div>
+                    <div className="w-16 text-right font-bold text-blue-600 text-xs">{media.count.toLocaleString('id-ID')}</div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* PIC & BY Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:col-span-3">
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 PIC</h2>
+                <div className="space-y-3">
+                  {topPICs.map((pic, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-gray-700">{pic.name}</span>
+                      <span className="text-gray-500">{pic.count} berita</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+                <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 BY</h2>
+                <div className="space-y-3">
+                  {topBYs.map((by, idx) => (
+                    <div key={idx} className="flex justify-between items-center text-sm">
+                      <span className="font-medium text-gray-700">{by.name}</span>
+                      <span className="text-gray-500">{by.count} berita</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -856,6 +1032,13 @@ export default function App() {
           100% { transform: translateX(-50%); }
         }
       `}} />
+
+      <ReportGenerator 
+        isOpen={isReportModalOpen} 
+        onClose={() => setIsReportModalOpen(false)} 
+        data={data} 
+        parseDate={parseIndonesianDate} 
+      />
     </div>
   );
 }

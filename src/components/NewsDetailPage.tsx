@@ -27,58 +27,57 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
       <main className="p-4 sm:p-6 max-w-[1000px] mx-auto space-y-8">
         {/* Main Content */}
         <div className="bg-white rounded-xl p-5 sm:p-8 shadow-sm border border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <span className={`px-2.5 py-1 text-xs font-bold rounded-md ${
+          <div className="flex items-center gap-3 mb-6">
+            <span className={`px-3 py-1 text-xs font-bold rounded-full ${
               news.sentimen === 'Positif' ? 'bg-green-100 text-green-700' :
               news.sentimen === 'Negatif' ? 'bg-red-100 text-red-700' :
               'bg-yellow-100 text-yellow-700'
             }`}>
               {news.sentimen}
             </span>
-            <span className="text-sm text-gray-500 flex items-center gap-1"><Calendar className="w-4 h-4"/> {news.tanggal}</span>
+            <span className="text-sm text-gray-500 flex items-center gap-1.5"><Calendar className="w-4 h-4"/> {news.tanggal}</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 mb-6 leading-tight">{news.judul}</h1>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 mb-8 leading-tight tracking-tight">{news.judul}</h1>
           
-          <div className="w-full h-[250px] sm:h-[400px] bg-gray-200 rounded-xl overflow-hidden mb-8 relative">
+          <div className="w-full aspect-video bg-gray-200 rounded-2xl overflow-hidden mb-8 relative shadow-inner">
             <img 
               src={news.urlFoto || `https://picsum.photos/seed/${news.id + news.destinasi.replace(/\s+/g, '')}/1200/600`} 
               alt={news.judul}
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
               onError={(e) => {
-                // Fallback to picsum if the provided URL fails to load
                 (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${news.id + news.destinasi.replace(/\s+/g, '')}/1200/600`;
               }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-4">
-              <span className="text-white text-xs font-medium bg-black/40 px-2 py-1 rounded backdrop-blur-sm">
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent flex items-end p-6">
+              <span className="text-white text-xs font-medium bg-black/30 px-3 py-1 rounded-full backdrop-blur-sm">
                 {news.urlFoto ? 'Foto Berita' : 'Ilustrasi Berita'}
               </span>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-4 mb-8 p-4 sm:p-5 bg-gray-50 rounded-xl border border-gray-100">
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1">
-              <div className="p-2 bg-blue-100 rounded-lg text-blue-600"><Globe className="w-5 h-5" /></div>
+          <div className="flex flex-wrap gap-4 mb-8 p-6 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+              <div className="p-3 bg-blue-100 rounded-xl text-blue-600"><Globe className="w-6 h-6" /></div>
               <div>
-                <div className="text-xs text-gray-500">Sumber Media</div>
-                <div className="text-sm font-bold text-gray-800">{news.media}</div>
+                <div className="text-xs text-gray-500 font-medium">Sumber Media</div>
+                <div className="text-sm font-bold text-gray-900">{news.media}</div>
               </div>
             </div>
-            <div className="hidden sm:block w-px h-10 bg-gray-200"></div>
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1">
-              <div className="p-2 bg-red-100 rounded-lg text-red-600"><MapPin className="w-5 h-5" /></div>
+            <div className="hidden sm:block w-px h-12 bg-gray-200"></div>
+            <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+              <div className="p-3 bg-red-100 rounded-xl text-red-600"><MapPin className="w-6 h-6" /></div>
               <div>
-                <div className="text-xs text-gray-500">Destinasi</div>
-                <div className="text-sm font-bold text-gray-800">{news.destinasi}</div>
+                <div className="text-xs text-gray-500 font-medium">Destinasi</div>
+                <div className="text-sm font-bold text-gray-900">{news.destinasi}</div>
               </div>
             </div>
-            <div className="hidden sm:block w-px h-10 bg-gray-200"></div>
-            <div className="flex items-center gap-2 w-full sm:w-auto sm:flex-1">
-              <div className="p-2 bg-green-100 rounded-lg text-green-600"><TrendingUp className="w-5 h-5" /></div>
+            <div className="hidden sm:block w-px h-12 bg-gray-200"></div>
+            <div className="flex items-center gap-3 w-full sm:w-auto sm:flex-1">
+              <div className="p-3 bg-green-100 rounded-xl text-green-600"><TrendingUp className="w-6 h-6" /></div>
               <div>
-                <div className="text-xs text-gray-500">Sentimen Analisis</div>
-                <div className="text-sm font-bold text-gray-800">{news.sentimen}</div>
+                <div className="text-xs text-gray-500 font-medium">Sentimen</div>
+                <div className="text-sm font-bold text-gray-900">{news.sentimen}</div>
               </div>
             </div>
           </div>
@@ -162,10 +161,13 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
               >
                 <div className="w-full aspect-video bg-gray-200 rounded-lg overflow-hidden relative">
                   <img 
-                    src={`https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/400/225`} 
+                    src={related.urlFoto || `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/400/225`} 
                     alt={related.judul} 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
                     referrerPolicy="no-referrer" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/400/225`;
+                    }}
                   />
                   <div className="absolute top-2 right-2">
                     <span className={`text-[10px] font-bold px-2 py-1 rounded-md shadow-sm ${
