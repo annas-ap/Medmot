@@ -18,8 +18,18 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressText, setProgressText] = useState('');
   const [reportData, setReportData] = useState<any>(null);
+  const [step, setStep] = useState<'form' | 'review'>('form');
   
   const reportRef = useRef<HTMLDivElement>(null);
+
+  // Reset state when modal opens/closes
+  React.useEffect(() => {
+    if (isOpen) {
+      setStep('form');
+      setReportData(null);
+      setIsGenerating(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -118,7 +128,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
       const aiContent = response.text || 'Gagal menghasilkan analisis.';
 
-      // Set data for rendering
+      // Set data for rendering and move to review step
       setReportData({
         startDate,
         endDate,
@@ -130,30 +140,9 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         topMedia,
         aiContent
       });
-
-      setProgressText('Menyiapkan dokumen PDF...');
       
-      // Wait for React to render the hidden report
-      setTimeout(async () => {
-        if (reportRef.current) {
-          try {
-            const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true });
-            const imgData = canvas.toDataURL('image/png');
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-            
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-            pdf.save(`Laporan_Media_Intelijen_${startDate}_${endDate}.pdf`);
-          } catch (err: any) {
-            console.error('Error generating PDF:', err);
-            alert(`Terjadi kesalahan saat membuat PDF: ${err?.message || String(err)}`);
-          }
-        }
-        setIsGenerating(false);
-        setReportData(null);
-        onClose();
-      }, 1000); // Give it a second to render
+      setStep('review');
+      setIsGenerating(false);
 
     } catch (error: any) {
       console.error('Error:', error);
@@ -162,72 +151,206 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     }
   };
 
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current || !reportData) return;
+    
+    setIsGenerating(true);
+    setProgressText('Menyiapkan dokumen PDF...');
+    
+    try {
+      const canvas = await html2canvas(reportRef.current, { scale: 2, useCORS: true });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Laporan_Media_Intelijen_${reportData.startDate}_${reportData.endDate}.pdf`);
+      
+      setIsGenerating(false);
+      onClose();
+    } catch (err: any) {
+      console.error('Error generating PDF:', err);
+      alert(`Terjadi kesalahan saat membuat PDF: ${err?.message || String(err)}`);
+      setIsGenerating(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+      <div className={`bg-white rounded-2xl shadow-xl w-full ${step === 'review' ? 'max-w-4xl h-[90vh]' : 'max-w-md'} overflow-hidden flex flex-col transition-all duration-300`}>
         <div className="flex justify-between items-center p-5 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <FileDown className="w-5 h-5 text-blue-600" /> Generate Laporan PDF
+            <FileDown className="w-5 h-5 text-blue-600" /> 
+            {step === 'form' ? 'Generate Laporan PDF' : 'Review Laporan'}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors" disabled={isGenerating}>
             <X className="w-5 h-5" />
           </button>
         </div>
         
-        <div className="p-6 space-y-5">
-          <p className="text-sm text-gray-600">
-            Pilih rentang waktu untuk menghasilkan laporan analisis media yang dilengkapi dengan rekomendasi kebijakan berbasis AI.
-          </p>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Mulai</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="date" 
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  disabled={isGenerating}
-                />
+        {step === 'form' ? (
+          <>
+            <div className="p-6 space-y-5">
+              <p className="text-sm text-gray-600">
+                Pilih rentang waktu untuk menghasilkan laporan analisis media yang dilengkapi dengan rekomendasi kebijakan berbasis AI.
+              </p>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Mulai</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="date" 
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Akhir</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input 
+                      type="date" 
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      disabled={isGenerating}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Akhir</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input 
-                  type="date" 
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  disabled={isGenerating}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
 
-        <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
-          <button 
-            onClick={handleGenerate}
-            disabled={isGenerating || !startDate || !endDate}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                {progressText}
-              </>
-            ) : (
-              <>
-                <FileDown className="w-4 h-4" />
-                Generate PDF
-              </>
-            )}
-          </button>
-        </div>
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+              <button 
+                onClick={handleGenerate}
+                disabled={isGenerating || !startDate || !endDate}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {progressText}
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    Buat Laporan
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Review Step */}
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+              {/* This is the visible preview container */}
+              <div className="max-w-[794px] mx-auto bg-white shadow-sm border border-gray-200">
+                {/* We render the exact same content here for preview, and keep the hidden one for html2canvas */}
+                {reportData && (
+                  <div className="p-10 bg-white">
+                    {/* Header */}
+                    <div className="border-b-2 border-blue-900 pb-6 mb-8 flex justify-between items-end">
+                      <div>
+                        <h1 className="text-3xl font-extrabold text-blue-900 mb-2">Laporan Media Intelligence</h1>
+                        <h2 className="text-xl font-bold text-gray-700">Dinas Pariwisata Jawa Barat</h2>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-gray-500">Periode Laporan:</p>
+                        <p className="text-base font-bold text-gray-800">{reportData.startDate} s/d {reportData.endDate}</p>
+                      </div>
+                    </div>
+
+                    {/* Executive Summary Stats */}
+                    <div className="grid grid-cols-4 gap-4 mb-8">
+                      <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <p className="text-xs font-bold text-blue-600 uppercase">Total Berita</p>
+                        <p className="text-2xl font-black text-blue-900">{reportData.total}</p>
+                      </div>
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-100">
+                        <p className="text-xs font-bold text-green-600 uppercase">Positif</p>
+                        <p className="text-2xl font-black text-green-900">{reportData.positif}</p>
+                      </div>
+                      <div className="bg-yellow-50 p-4 rounded-xl border border-yellow-100">
+                        <p className="text-xs font-bold text-yellow-600 uppercase">Netral</p>
+                        <p className="text-2xl font-black text-yellow-900">{reportData.netral}</p>
+                      </div>
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-100">
+                        <p className="text-xs font-bold text-red-600 uppercase">Negatif</p>
+                        <p className="text-2xl font-black text-red-900">{reportData.negatif}</p>
+                      </div>
+                    </div>
+
+                    {/* Top Lists */}
+                    <div className="grid grid-cols-2 gap-8 mb-8">
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800 border-b pb-2 mb-3 uppercase">Top 5 Destinasi</h3>
+                        <ul className="space-y-2">
+                          {reportData.topDestinations.map((d: any, i: number) => (
+                            <li key={i} className="flex justify-between text-sm">
+                              <span className="text-gray-700">{d.name}</span>
+                              <span className="font-bold text-gray-900">{d.count}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-800 border-b pb-2 mb-3 uppercase">Top 5 Media</h3>
+                        <ul className="space-y-2">
+                          {reportData.topMedia.map((m: any, i: number) => (
+                            <li key={i} className="flex justify-between text-sm">
+                              <span className="text-gray-700">{m.name}</span>
+                              <span className="font-bold text-gray-900">{m.count}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* AI Analysis & Recommendations */}
+                    <div className="prose prose-sm max-w-none prose-blue prose-headings:text-blue-900 prose-headings:font-bold">
+                      <div className="markdown-body">
+                        <Markdown>{reportData.aiContent}</Markdown>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+              <button 
+                onClick={() => setStep('form')}
+                disabled={isGenerating}
+                className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors px-4 py-2"
+              >
+                Kembali
+              </button>
+              <button 
+                onClick={handleDownloadPDF}
+                disabled={isGenerating}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {progressText}
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="w-4 h-4" />
+                    Download PDF
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Hidden Report Template for PDF Generation */}
