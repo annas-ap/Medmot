@@ -1,0 +1,5 @@
+{
+  "name": "Live Sheets Dashboard",
+  "description": "A real-time dashboard connected to a published Google Sheets CSV.",
+  "requestFramePermissions": []
+}
