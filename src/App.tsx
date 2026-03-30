@@ -354,20 +354,20 @@ export default function App() {
     <div className="min-h-screen bg-[#F3F4F6] text-gray-800 font-sans overflow-x-hidden">
       {/* Top Header */}
       <header className="bg-[#1E3A8A] text-white">
-        <div className="px-6 py-3 flex justify-between items-center">
-          <div className="flex items-center gap-3">
+        <div className="px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="bg-white/10 p-2 rounded-lg">
               <LayoutDashboard className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold leading-tight flex items-center gap-2">
+              <h1 className="text-sm md:text-lg font-bold leading-tight flex items-center gap-2">
                 <span className="text-xl">📊</span> Dashboard News Monitoring Pariwisata Jabar
               </h1>
-              <p className="text-xs text-blue-200">Ringkasan Informasi Media & Sentimen Berita Pariwisata Jawa Barat • Real-time</p>
+              <p className="text-[10px] md:text-xs text-blue-200">Ringkasan Informasi Media & Sentimen Berita Pariwisata Jawa Barat • Real-time</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
             <div 
               className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
                 error ? 'bg-red-500/20 border-red-500/30 text-red-100' : 'bg-white/10 border-white/20'
@@ -378,15 +378,15 @@ export default function App() {
                 {!error && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${error ? 'bg-red-500' : 'bg-green-500'}`}></span>
               </span>
-              <span className="text-xs font-medium tracking-wider">{error ? 'SYNC ERROR' : 'LIVE'}</span>
+              <span className="text-[10px] font-medium tracking-wider">{error ? 'SYNC ERROR' : 'LIVE'}</span>
             </div>
             
-            <div className="text-right">
+            <div className="text-right hidden md:block">
               <div className="text-sm font-medium">{formatDate(currentTime)}</div>
               <div className="text-xs text-blue-200">{formatTime(currentTime)}</div>
             </div>
             
-            <div className="border-l border-blue-700 pl-6 text-right">
+            <div className="border-l border-blue-700 pl-4 text-right hidden md:block">
               <div className="text-sm font-medium">Dinas Pariwisata Jawa Barat</div>
               <div className="text-xs text-blue-200">Media Intelligence Unit</div>
             </div>
@@ -410,8 +410,8 @@ export default function App() {
 
       <main className="p-6 max-w-[1600px] mx-auto space-y-6">
         {/* Filter Bar */}
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
-          <div className="flex flex-col sm:flex-row gap-6 w-full lg:w-auto">
+        <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+          <div className="flex flex-col gap-4 w-full">
             {/* Filter Waktu */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-center gap-2">
@@ -435,8 +435,6 @@ export default function App() {
               </div>
             </div>
 
-            <div className="hidden sm:block w-px h-8 bg-gray-200 self-center"></div>
-
             {/* Filter Wilayah */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex items-center gap-2">
@@ -446,7 +444,7 @@ export default function App() {
               <select 
                 value={regionFilter}
                 onChange={(e) => setRegionFilter(e.target.value)}
-                className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer min-w-[200px]"
+                className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto"
               >
                 <option value="Semua">Semua Kabupaten/Kota</option>
                 <option value="Kota Bandung">Kota Bandung</option>
@@ -461,7 +459,7 @@ export default function App() {
           </div>
           
           {/* Search Bar */}
-          <div className="w-full lg:w-72 relative">
+          <div className="w-full relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
               <Search className="h-4 w-4 text-gray-400" />
             </div>
@@ -476,7 +474,7 @@ export default function App() {
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 bg-blue-50/50 border-2 border-blue-400 p-4 rounded-xl">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-blue-50/50 border-2 border-blue-400 p-4 rounded-xl">
           {/* Total Berita */}
           <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
             <div className="flex justify-between items-start mb-2">

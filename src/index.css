@@ -1,1 +1,16 @@
 @import "tailwindcss";
+
+@theme {
+  --color-bg: #f3f4f6;
+  --color-card: #ffffff;
+  --color-text-primary: #111827;
+  --color-text-secondary: #6b7280;
+  --color-accent: #3b82f6;
+  --radius-card: 1rem;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
