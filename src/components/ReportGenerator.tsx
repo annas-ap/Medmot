@@ -88,6 +88,10 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       // 2. Call AI for Analysis and Recommendations
       setProgressText('Menyusun analisis dengan AI...');
       
+      if (!process.env.GEMINI_API_KEY) {
+        throw new Error("GEMINI_API_KEY tidak ditemukan di environment.");
+      }
+
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       
       const prompt = `
@@ -108,7 +112,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
       });
 
@@ -141,9 +145,9 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
             
             pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
             pdf.save(`Laporan_Media_Intelijen_${startDate}_${endDate}.pdf`);
-          } catch (err) {
+          } catch (err: any) {
             console.error('Error generating PDF:', err);
-            alert('Terjadi kesalahan saat membuat PDF.');
+            alert(`Terjadi kesalahan saat membuat PDF: ${err?.message || String(err)}`);
           }
         }
         setIsGenerating(false);
@@ -151,9 +155,9 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         onClose();
       }, 1000); // Give it a second to render
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
-      alert('Terjadi kesalahan saat memproses laporan.');
+      alert(`Terjadi kesalahan saat memproses laporan: ${error?.message || String(error)}`);
       setIsGenerating(false);
     }
   };
