@@ -695,8 +695,8 @@ export default function App() {
                 {timeFilter === 'Hari Ini' ? 'Hari Ini' : timeFilter === '7 Hari' ? '7 Hari Terakhir' : timeFilter === '30 Hari' ? '30 Hari Terakhir' : 'Tahun 2025'}
               </div>
             </div>
-            <div className="h-[220px] w-full mt-4">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[220px] w-full mt-4 min-w-0 min-h-0">
+              <ResponsiveContainer width="99%" height="100%">
                 <BarChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#9CA3AF'}} dy={10} />
                   <RechartsTooltip 
@@ -718,8 +718,8 @@ export default function App() {
               <p className="text-xs text-gray-500">Keseluruhan periode</p>
             </div>
             <div className="flex flex-col items-center justify-center h-[220px]">
-              <div className="w-full h-[140px] relative">
-                <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full h-[140px] relative min-w-0 min-h-0">
+                <ResponsiveContainer width="99%" height="100%">
                   <PieChart>
                     <RechartsTooltip 
                       contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff', padding: '8px 12px' }}
