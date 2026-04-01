@@ -6,7 +6,7 @@ import autoTable from 'jspdf-autotable';
 import * as htmlToImage from 'html-to-image';
 import Markdown from 'react-markdown';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { MapContainer, GeoJSON } from 'react-leaflet';
+import { MapContainer, GeoJSON, TileLayer, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
 
 import { Document, Page, pdfjs } from 'react-pdf';
@@ -17,11 +17,13 @@ import 'react-pdf/dist/Page/TextLayer.css';
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 const AVAILABLE_COLUMNS = [
+  { id: 'NOMOR', label: 'Nomor' },
   { id: 'TANGGAL', label: 'Tanggal' },
   { id: 'NAMA MEDIA', label: 'Media' },
   { id: 'JUDUL', label: 'Judul Berita' },
   { id: 'KAB/KOTA', label: 'Destinasi/Wilayah' },
   { id: 'SENTIMEN', label: 'Sentimen' },
+  { id: 'LINK BERITA', label: 'Link Berita' },
 ];
 
 const COLORS = {
@@ -186,6 +188,39 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         .sort((a, b) => b[1] - a[1])
         .map(([name, count]) => ({ name, count }));
 
+      // Map Data based on real KAB/KOTA
+      const coordinates: Record<string, [number, number]> = {
+        'kota bandung': [-6.9147, 107.6098],
+        'kabupaten bogor': [-6.5971, 106.8060],
+        'kabupaten pangandaran': [-7.6963, 108.6563],
+        'kabupaten garut': [-7.2279, 107.9087],
+        'kabupaten bandung barat': [-6.8406, 107.4878],
+        'kota cirebon': [-6.7320, 108.5523],
+        'kota depok': [-6.4025, 106.7942],
+        'kota sukabumi': [-6.9228, 106.9222],
+        'kabupaten tasikmalaya': [-7.3195, 108.2040],
+        'kabupaten purwakarta': [-6.5569, 107.4433],
+        'kabupaten subang': [-6.5686, 107.7667],
+        'kabupaten cianjur': [-6.8167, 107.1333],
+        'kabupaten majalengka': [-6.8361, 108.2260],
+      };
+
+      const mapData = Object.entries(destCounts).map(([name, count]) => {
+        const key = name.toLowerCase();
+        let lat = -6.9204;
+        let lng = 107.6046;
+        
+        for (const [k, coords] of Object.entries(coordinates)) {
+          if (key.includes(k) || k.includes(key)) {
+            lat = coords[0];
+            lng = coords[1];
+            break;
+          }
+        }
+        
+        return { name, lat, lng, count };
+      });
+
       // 2. Call AI for Analysis and Recommendations
       setProgressText('Menyusun analisis dengan AI...');
       
@@ -222,7 +257,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
            ### IV. REKOMENDASI STRATEGIS DAN TINDAK LANJUT
            Berikan minimal 4 rekomendasi konkret yang bersifat manajerial, strategis, dan taktis untuk meningkatkan citra pariwisata Jawa Barat. Gunakan format poin-poin profesional.
         
-        Pastikan analisis Anda mendalam, objektif, dan memberikan nilai tambah strategis bagi pengambil keputusan.
+        Pastikan analisis Anda mendalam, objektif, dan memberikan nilai tambah strategis bagi pengambil keputusan. Format output menggunakan markdown yang rapi.
       `;
 
       const response = await ai.models.generateContent({
@@ -242,6 +277,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         topDestinations,
         topMedia,
         allRegions,
+        mapData,
         aiContent,
         selectedColumns,
         tableData: filteredData
@@ -323,42 +359,79 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     pdf.setLineWidth(1);
     pdf.line(margin, 30, margin + 100, 30);
     
-    pdf.setFontSize(11);
-    pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(51, 65, 85); // slate-700
-    
-    // Clean markdown for PDF text
-    const cleanText = data.aiContent
-      .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold markers
-      .replace(/### (.*)/g, '$1')     // Clean H3
-      .replace(/## (.*)/g, '$1')      // Clean H2
-      .replace(/# (.*)/g, '$1')       // Clean H1
-      .replace(/\* (.*)/g, '• $1')    // Convert bullets
-      .replace(/\n\n/g, '\n')         // Reduce double newlines
-      .trim();
-      
-    const splitText = pdf.splitTextToSize(cleanText, contentWidth);
+    // Process markdown for PDF text
+    const lines = data.aiContent.split('\n');
     let yPos = 40;
     
-    // Handle multi-page text for analysis
-    for (let i = 0; i < splitText.length; i++) {
-      if (yPos > pageHeight - 20) {
-        pdf.addPage();
-        yPos = 20;
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      if (!line) {
+        yPos += 4; // Add some space for empty lines
+        continue;
       }
-      pdf.text(splitText[i], margin, yPos);
-      yPos += 6;
+
+      // Handle Headers
+      if (line.startsWith('### ')) {
+        pdf.setFontSize(14);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 58, 138);
+        line = line.replace('### ', '');
+        yPos += 4;
+      } else if (line.startsWith('## ')) {
+        pdf.setFontSize(16);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 58, 138);
+        line = line.replace('## ', '');
+        yPos += 6;
+      } else if (line.startsWith('# ')) {
+        pdf.setFontSize(18);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(30, 58, 138);
+        line = line.replace('# ', '');
+        yPos += 8;
+      } else {
+        // Normal text
+        pdf.setFontSize(11);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(51, 65, 85);
+        
+        // Handle bold text within line (simple approximation for PDF)
+        line = line.replace(/\*\*(.*?)\*\*/g, '$1');
+        
+        // Handle bullets
+        if (line.startsWith('* ') || line.startsWith('- ')) {
+          line = '• ' + line.substring(2);
+        }
+      }
+
+      const splitText = pdf.splitTextToSize(line, contentWidth);
+      
+      for (let j = 0; j < splitText.length; j++) {
+        if (yPos > pageHeight - 20) {
+          pdf.addPage();
+          yPos = 20;
+        }
+        pdf.text(splitText[j], margin, yPos);
+        yPos += 6;
+      }
     }
     
     // Page 3+: Data Appendix (Searchable Table)
     if (data.selectedColumns && data.selectedColumns.length > 0) {
-      pdf.addPage();
+      pdf.addPage('a4', 'l'); // Add page in landscape orientation
       
-      const tableColumn = AVAILABLE_COLUMNS.filter(c => data.selectedColumns.includes(c.id)).map(c => c.label);
-      const tableRows = data.tableData.map((row: any) => {
-        return data.selectedColumns.map((colId: string) => {
-          let val = String(row[colId] || '-');
-          if (colId === 'KAB/KOTA') {
+      const landscapeWidth = pdf.internal.pageSize.getWidth();
+      const landscapeMargin = 15;
+      
+      const selectedCols = AVAILABLE_COLUMNS.filter(c => data.selectedColumns.includes(c.id));
+      const tableColumn = selectedCols.map(c => c.label);
+      
+      const tableRows = data.tableData.map((row: any, index: number) => {
+        return selectedCols.map(col => {
+          if (col.id === 'NOMOR') return String(index + 1);
+          if (col.id === 'LINK BERITA') return String(row['LINK URL'] || row['URL'] || '-');
+          let val = String(row[col.id] || '-');
+          if (col.id === 'KAB/KOTA') {
             val = val.replace(/,/g, ', ');
           }
           return val;
@@ -366,23 +439,27 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       });
       
       const columnStyles: any = {};
-      data.selectedColumns.forEach((colId: string, index: number) => {
-        if (colId === 'TANGGAL') columnStyles[index] = { cellWidth: 22 };
-        if (colId === 'NAMA MEDIA') columnStyles[index] = { cellWidth: 30 };
-        if (colId === 'JUDUL') columnStyles[index] = { cellWidth: 'auto' };
-        if (colId === 'KAB/KOTA') columnStyles[index] = { cellWidth: 35 };
-        if (colId === 'SENTIMEN') columnStyles[index] = { cellWidth: 20 };
+      selectedCols.forEach((col, index) => {
+        if (col.id === 'NOMOR') columnStyles[index] = { cellWidth: 10, halign: 'center' };
+        else if (col.id === 'TANGGAL') columnStyles[index] = { cellWidth: 25 };
+        else if (col.id === 'NAMA MEDIA') columnStyles[index] = { cellWidth: 35 };
+        else if (col.id === 'JUDUL') columnStyles[index] = { cellWidth: 'auto' };
+        else if (col.id === 'KAB/KOTA') columnStyles[index] = { cellWidth: 40 };
+        else if (col.id === 'SENTIMEN') columnStyles[index] = { cellWidth: 20 };
+        else if (col.id === 'LINK BERITA') columnStyles[index] = { cellWidth: 50, overflow: 'hidden' };
       });
+      
+      const linkColIndex = selectedCols.findIndex(c => c.id === 'LINK BERITA');
       
       pdf.setFontSize(18);
       pdf.setFont('helvetica', 'bold');
       pdf.setTextColor(30, 58, 138);
-      pdf.text('Lampiran: Rincian Data Berita', margin, 20);
+      pdf.text('Lampiran: Rincian Data Berita', landscapeMargin, 20);
       
       pdf.setFontSize(10);
       pdf.setFont('helvetica', 'normal');
       pdf.setTextColor(100, 116, 139);
-      pdf.text(`Periode: ${data.startDate} s/d ${data.endDate}`, margin, 26);
+      pdf.text(`Periode: ${data.startDate} s/d ${data.endDate}`, landscapeMargin, 26);
       
       autoTable(pdf, {
         head: [tableColumn],
@@ -392,8 +469,18 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         styles: { fontSize: 8, cellPadding: 3, font: 'helvetica', overflow: 'linebreak' },
         headStyles: { fillColor: [30, 58, 138], textColor: 255, fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { top: 20, left: margin, right: margin },
+        margin: { top: 20, left: landscapeMargin, right: landscapeMargin },
         columnStyles: columnStyles,
+        didDrawCell: (data) => {
+          // Add link functionality if it's the link column and has a valid URL
+          if (data.section === 'body' && data.column.index === linkColIndex && data.cell.raw !== '-') {
+            const url = String(data.cell.raw);
+            if (url.startsWith('http')) {
+              pdf.setTextColor(37, 99, 235); // blue-600
+              pdf.textWithLink(url.substring(0, 30) + (url.length > 30 ? '...' : ''), data.cell.x + 2, data.cell.y + 5, { url: url });
+            }
+          }
+        }
       });
     }
 
@@ -561,54 +648,54 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
           <div className="bg-blue-100 p-3 rounded-xl">
             <Activity className="w-6 h-6 text-blue-600" />
           </div>
-          <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Sebaran Wilayah (Heatmap)</h3>
+          <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Peta Sebaran Berita Jawa Barat</h3>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className="md:col-span-2 h-[500px] bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 relative">
-            {geoJson ? (
-              <MapContainer 
-                center={[-6.9175, 107.6191]} 
-                zoom={8} 
-                className="h-full w-full"
-                zoomControl={false}
-                dragging={false}
-                scrollWheelZoom={false}
-                doubleClickZoom={false}
-                attributionControl={false}
-                preferCanvas={true}
-              >
-                <GeoJSON 
-                  data={geoJson} 
-                  style={(feature) => {
-                    const regionName = feature?.properties?.nm_kabko || feature?.properties?.NAME_2 || '';
-                    const normName = normalizeRegionName(regionName);
-                    const regionData = reportData.allRegions.find((r: any) => 
-                      normalizeRegionName(r.name) === normName
-                    );
-                    const count = regionData ? regionData.count : 0;
-                    const maxCount = reportData.allRegions.length > 0 ? reportData.allRegions[0].count : 1;
-                    
-                    return {
-                      fillColor: getRegionColor(count, maxCount),
-                      weight: 1,
-                      opacity: 1,
-                      color: 'white',
-                      fillOpacity: 1
-                    };
-                  }}
-                />
-              </MapContainer>
-            ) : (
-              <div className="h-full w-full flex items-center justify-center text-gray-400">
-                <Loader2 className="w-8 h-8 animate-spin mr-2" />
-                Memuat Peta...
-              </div>
-            )}
+            <MapContainer 
+              center={[-6.9204, 107.6046]} 
+              zoom={8} 
+              className="h-full w-full"
+              zoomControl={false}
+              dragging={false}
+              scrollWheelZoom={false}
+              doubleClickZoom={false}
+              attributionControl={false}
+              preferCanvas={true}
+            >
+              <TileLayer
+                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+              />
+              {reportData.mapData && reportData.mapData.map((loc: any, idx: number) => {
+                const maxCount = Math.max(...reportData.mapData.map((d: any) => d.count), 1);
+                const intensity = loc.count / maxCount;
+                const radius = 10 + (intensity * 25);
+                
+                const r = 255;
+                const g = Math.floor(255 * (1 - intensity));
+                const b = 0;
+                const color = `rgb(${r}, ${g}, ${b})`;
+
+                return (
+                  <CircleMarker
+                    key={idx}
+                    center={[loc.lat, loc.lng]}
+                    radius={radius}
+                    pathOptions={{ 
+                      fillColor: color, 
+                      fillOpacity: 0.6, 
+                      color: color, 
+                      weight: 1 
+                    }}
+                  />
+                );
+              })}
+            </MapContainer>
             <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur-sm p-3 rounded-xl border border-gray-100 shadow-sm z-[1000]">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Intensitas Berita</p>
               <div className="flex items-center gap-2">
-                <div className="w-24 h-2 bg-gradient-to-r from-blue-100 to-blue-900 rounded-full" />
+                <div className="w-24 h-2 bg-gradient-to-r from-yellow-400 to-red-600 rounded-full" />
                 <span className="text-[10px] font-bold text-gray-600">Tinggi</span>
               </div>
             </div>
