@@ -2,6 +2,8 @@
 @plugin "@tailwindcss/typography";
 @import "leaflet/dist/leaflet.css";
 
+@custom-variant dark (&:is(.dark, .dark *));
+
 @theme {
   --color-bg: #f3f4f6;
   --color-card: #ffffff;
@@ -15,4 +17,44 @@ body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
   font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Hide scrollbar for specific elements but allow scroll */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Dark Mode Base Overrides (Optional if using Tailwind dark: classes) */
+html.dark body {
+  background-color: #111827;
+  color: #f9fafb;
+}
+html.dark ::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
 }

@@ -757,13 +757,26 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className={`bg-white rounded-2xl shadow-xl w-full ${step === 'review' ? 'max-w-4xl h-[90vh]' : 'max-w-md'} overflow-hidden flex flex-col transition-all duration-300`}>
-        <div className="flex justify-between items-center p-5 border-b border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <FileDown className="w-5 h-5 text-blue-600" /> 
+      <div className={`bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full ${step === 'review' ? 'max-w-4xl h-[90vh]' : 'max-w-md'} overflow-hidden flex flex-col transition-all duration-300 relative`}>
+        {/* Loading Overlay */}
+        {isGenerating && step === 'form' && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+            <Loader2 className="w-12 h-12 text-blue-600 dark:text-blue-400 animate-spin mb-4" />
+            <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Membuat Laporan</h3>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-400 text-center max-w-xs">
+              {progressText}
+            </p>
+            <div className="w-48 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full mt-6 overflow-hidden">
+              <div className="h-full bg-blue-600 dark:bg-blue-500 rounded-full animate-pulse w-full"></div>
+            </div>
+          </div>
+        )}
+        <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-gray-700">
+          <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+            <FileDown className="w-5 h-5 text-blue-600 dark:text-blue-400" /> 
             {step === 'form' ? 'Generate Laporan PDF' : 'Review Laporan'}
           </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors" disabled={isGenerating}>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" disabled={isGenerating}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -771,42 +784,42 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         {step === 'form' ? (
           <>
             <div className="p-6 space-y-5">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 Pilih rentang waktu untuk menghasilkan laporan analisis media yang dilengkapi dengan rekomendasi kebijakan berbasis AI.
               </p>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Mulai</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Tanggal Mulai</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                       type="date" 
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                       disabled={isGenerating}
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Tanggal Akhir</label>
+                  <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">Tanggal Akhir</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input 
                       type="date" 
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                       disabled={isGenerating}
                     />
                   </div>
                 </div>
               </div>
               
-              <div className="pt-2 border-t border-gray-100">
-                <label className="block text-xs font-bold text-gray-700 mb-2">Kolom Data Tambahan (Opsional)</label>
-                <p className="text-xs text-gray-500 mb-3">Pilih kolom yang ingin dilampirkan sebagai tabel di halaman berikutnya pada PDF.</p>
+              <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-2">Kolom Data Tambahan (Opsional)</label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Pilih kolom yang ingin dilampirkan sebagai tabel di halaman berikutnya pada PDF.</p>
                 <div className="grid grid-cols-2 gap-2">
                   {AVAILABLE_COLUMNS.map(col => (
                     <button
@@ -815,14 +828,14 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
                       disabled={isGenerating}
                       className={`flex items-center gap-2 p-2 rounded-lg border text-left text-sm transition-colors ${
                         selectedColumns.includes(col.id) 
-                          ? 'bg-blue-50 border-blue-200 text-blue-700' 
-                          : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300' 
+                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       {selectedColumns.includes(col.id) ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                        <CheckSquare className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                       ) : (
-                        <Square className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <Square className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                       )}
                       <span className="truncate">{col.label}</span>
                     </button>
@@ -831,11 +844,11 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
               </div>
             </div>
 
-            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-end">
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-end">
               <button 
                 onClick={handleGenerate}
                 disabled={isGenerating || !startDate || !endDate}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
               >
                 {isGenerating ? (
                   <>
@@ -854,7 +867,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         ) : (
           <>
             {/* Review Step - Real PDF Viewer */}
-            <div className="flex-1 bg-gray-200 relative overflow-y-auto p-4 flex justify-center">
+            <div className="flex-1 bg-gray-200 dark:bg-gray-900 relative overflow-y-auto p-4 flex justify-center">
               {pdfUrl ? (
                 <div className="shadow-2xl bg-white">
                   <Document
@@ -862,12 +875,12 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
                     onLoadSuccess={onDocumentLoadSuccess}
                     loading={
                       <div className="flex flex-col items-center justify-center p-20 gap-4">
-                        <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                        <p className="text-gray-500 font-medium">Menampilkan PDF...</p>
+                        <Loader2 className="w-10 h-10 animate-spin text-blue-600 dark:text-blue-400" />
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">Menampilkan PDF...</p>
                       </div>
                     }
                     error={
-                      <div className="p-10 text-red-500 text-center">
+                      <div className="p-10 text-red-500 dark:text-red-400 text-center">
                         Gagal memuat pratinjau PDF. Silakan coba unduh langsung.
                       </div>
                     }
@@ -885,25 +898,25 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
                   </Document>
                 </div>
               ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-500">
-                  <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 text-gray-500 dark:text-gray-400">
+                  <Loader2 className="w-10 h-10 animate-spin text-blue-600 dark:text-blue-400" />
                   <p className="font-medium">Memuat pratinjau PDF...</p>
                   <p className="text-sm">Jika pratinjau tidak muncul, Anda tetap dapat mengunduh PDF di bawah.</p>
                 </div>
               )}
             </div>
-            <div className="p-5 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
+            <div className="p-5 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex justify-between items-center">
               <button 
                 onClick={() => setStep('form')}
                 disabled={isGenerating}
-                className="text-gray-600 hover:text-gray-900 font-medium text-sm transition-colors px-4 py-2"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 font-medium text-sm transition-colors px-4 py-2"
               >
                 Kembali
               </button>
               <button 
                 onClick={handleDownloadPDF}
                 disabled={isGenerating}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 dark:disabled:bg-blue-800 text-white px-5 py-2.5 rounded-lg font-medium text-sm transition-colors"
               >
                 {isGenerating ? (
                   <>

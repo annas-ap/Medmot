@@ -3,17 +3,91 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import Papa from 'papaparse';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown } from 'lucide-react';
+import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown, Moon, Sun, ArrowUp } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import NewsDetailPage from './components/NewsDetailPage';
 import ReportGenerator from './components/ReportGenerator';
+import NewsPortal from './components/NewsPortal';
+
+const DashboardSkeleton = () => (
+  <div className="space-y-6">
+    <div className="h-16 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse mb-8"></div>
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+      ))}
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="lg:col-span-3 space-y-6">
+        <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+        <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+      </div>
+      <div className="space-y-6">
+        <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+        <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const NewsPortalSkeleton = () => (
+  <div className="max-w-[1600px] mx-auto space-y-8">
+    {/* Header & Filters Skeleton */}
+    <div className="bg-white/90 dark:bg-gray-800/90 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="w-20 h-9 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+          ))}
+        </div>
+        <div className="w-full md:w-96 h-11 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+      </div>
+    </div>
+
+    {/* Hero Section Skeleton */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {[...Array(2)].map((_, i) => (
+        <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 h-[400px] flex flex-col">
+          <div className="h-3/5 w-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+          <div className="p-6 flex-1 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="w-full h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="w-4/5 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </div>
+            <div className="w-1/4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {/* Grid Section Skeleton */}
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 h-[380px] flex flex-col">
+          <div className="h-48 w-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+          <div className="p-5 flex-1 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="w-full h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+              <div className="w-4/5 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+            </div>
+            <div className="w-1/4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
 
 function MapZoomer({ center, zoom }: { center: [number, number], zoom: number }) {
   const map = useMap();
@@ -93,6 +167,18 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [activeView, setActiveView] = useState<'dashboard' | 'news'>('dashboard');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const lastCsvTextRef = useRef<string>('');
+
+  // Apply dark mode class to html element
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
 
   // Fetch data
   const fetchData = async (isInitial = false) => {
@@ -103,10 +189,17 @@ export default function App() {
       if (!response.ok) throw new Error('Failed to fetch data');
       const csvText = await response.text();
       
+      // Smart Diffing: Skip parsing and re-rendering if the data hasn't changed
+      if (!isInitial && csvText === lastCsvTextRef.current) {
+        return;
+      }
+      lastCsvTextRef.current = csvText;
+      
       Papa.parse(csvText, {
         header: true,
         dynamicTyping: true,
         skipEmptyLines: true,
+        worker: true, // Use Web Worker to prevent UI freezing during parse
         complete: (results) => {
           // Filter out rows that don't have a title (JUDUL) to remove empty trailing rows
           const validData = results.data.filter((row: any) => row['JUDUL'] && String(row['JUDUL']).trim() !== '');
@@ -127,7 +220,9 @@ export default function App() {
 
   useEffect(() => {
     fetchData(true); // Initial fetch with loading state
-    const dataInterval = setInterval(() => fetchData(false), 10000); // Silent refresh every 10 seconds for real-time feel
+    // Google Sheets "Publish to Web" caches data for ~5 minutes. 
+    // Polling every 60 seconds is much more efficient than 10 seconds.
+    const dataInterval = setInterval(() => fetchData(false), 60000); 
     const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000); // Update clock every second
     return () => {
       clearInterval(dataInterval);
@@ -357,6 +452,23 @@ export default function App() {
     return filtered;
   }, [recentNews, activeTab, searchQuery]);
 
+  // Pagination state for Berita Terkini table
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [regionFilter, timeFilter, searchQuery, activeTab]);
+
+  // Calculate paginated news
+  const paginatedNews = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredNews.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredNews, currentPage]);
+
+  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
+
   // Topik Hangat (Tags)
   const topTags = useMemo(() => {
     const tagCounts: Record<string, number> = {};
@@ -443,46 +555,100 @@ export default function App() {
     return `${date.getHours().toString().padStart(2, '0')}.${date.getMinutes().toString().padStart(2, '0')}.${date.getSeconds().toString().padStart(2, '0')} WIB`;
   };
 
-  if (loading && data.length === 0) {
+  // Scroll to top functionality
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  if (selectedNews) {
     return (
-      <div className="min-h-screen bg-[#F3F4F6] flex flex-col items-center justify-center text-gray-500">
-        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-        <p className="font-medium">Memuat data dari Google Sheets...</p>
+      <div className="min-h-screen bg-[#F3F4F6] dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans overflow-x-hidden transition-colors duration-300">
+        <NewsDetailPage 
+          news={selectedNews} 
+          onBack={() => setSelectedNews(null)} 
+          relatedNews={recentNews} 
+          onSelectNews={setSelectedNews} 
+        />
+        {/* Back to Top Button */}
+        <AnimatePresence>
+          {showScrollTop && (
+            <motion.button
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              onClick={scrollToTop}
+              className="fixed bottom-6 right-6 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg z-50 transition-colors"
+              aria-label="Kembali ke atas"
+            >
+              <ArrowUp className="w-5 h-5" />
+            </motion.button>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
 
-  if (selectedNews) {
-    return (
-      <NewsDetailPage 
-        news={selectedNews} 
-        onBack={() => setSelectedNews(null)} 
-        relatedNews={recentNews} 
-        onSelectNews={setSelectedNews} 
-      />
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-[#F3F4F6] text-gray-800 font-sans overflow-x-hidden">
+    <div className="min-h-screen bg-[#F3F4F6] dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans overflow-x-hidden transition-colors duration-300">
       {/* Top Header */}
-      <header className="bg-[#1E3A8A] text-white">
-        <div className="px-4 py-3 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3 w-full md:w-auto">
-            <div className="bg-white/10 p-2 rounded-lg">
-              <LayoutDashboard className="w-5 h-5 text-white" />
-            </div>
+      <header className="sticky top-0 z-50 bg-[#1E3A8A]/95 dark:bg-gray-950/95 backdrop-blur-md text-white shadow-md border-b border-blue-800/50 dark:border-gray-800/50 transition-all">
+        <div className="px-4 py-3 flex justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 drop-shadow-md" />
             <div>
               <h1 className="text-sm md:text-lg font-bold leading-tight flex items-center gap-2">
-                <span className="text-xl">📊</span> Dashboard News Monitoring Pariwisata Jabar
+                Media Intelligence <span className="hidden sm:inline">Pariwisata Jabar</span>
               </h1>
-              <p className="text-[10px] md:text-xs text-blue-200">Ringkasan Informasi Media & Sentimen Berita Pariwisata Jawa Barat • Real-time</p>
+              <p className="text-[10px] md:text-xs text-blue-200 hidden sm:block">Ringkasan Informasi Media & Sentimen Berita • Real-time</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+          {/* Navigation Tabs (Desktop Only) */}
+          <div className="hidden md:flex bg-white/10 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveView('dashboard')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
+                activeView === 'dashboard' 
+                  ? 'bg-white text-blue-900 shadow-sm' 
+                  : 'text-blue-100 hover:bg-white/10'
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" />
+              Dashboard
+            </button>
+            <button
+              onClick={() => setActiveView('news')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
+                activeView === 'news' 
+                  ? 'bg-white text-blue-900 shadow-sm' 
+                  : 'text-blue-100 hover:bg-white/10'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              Portal Berita
+            </button>
+          </div>
+          
+          <div className="flex items-center gap-3 md:gap-4">
+            <button
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              title={isDarkMode ? "Mode Terang" : "Mode Gelap"}
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
             <div 
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-full border ${
+              className={`flex items-center gap-2 px-2 py-1.5 md:px-3 rounded-full border ${
                 error ? 'bg-red-500/20 border-red-500/30 text-red-100' : 'bg-white/10 border-white/20'
               }`}
               title={error ? `Error: ${error}` : 'Terhubung ke Google Sheets'}
@@ -491,25 +657,20 @@ export default function App() {
                 {!error && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${error ? 'bg-red-500' : 'bg-green-500'}`}></span>
               </span>
-              <span className="text-[10px] font-medium tracking-wider">{error ? 'SYNC ERROR' : 'LIVE'}</span>
+              <span className="text-[10px] font-medium tracking-wider hidden sm:inline">{error ? 'SYNC ERROR' : 'LIVE'}</span>
             </div>
             
-            <div className="text-right hidden md:block">
+            <div className="text-right hidden lg:block">
               <div className="text-sm font-medium">{formatDate(currentTime)}</div>
               <div className="text-xs text-blue-200">{formatTime(currentTime)}</div>
-            </div>
-            
-            <div className="border-l border-blue-700 pl-4 text-right hidden md:block">
-              <div className="text-sm font-medium">Dinas Pariwisata Jawa Barat</div>
-              <div className="text-xs text-blue-200">Media Intelligence Unit</div>
             </div>
           </div>
         </div>
       </header>
 
       {/* Breaking News Ticker */}
-      <div className="bg-gray-900 text-white px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap border-b border-gray-800">
-        <div className="flex items-center gap-2 font-bold text-red-500 mr-6 shrink-0 z-10 bg-gray-900 pr-4">
+      <div className="bg-[#172A68] dark:bg-gray-900 text-white px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap border-b border-blue-900 dark:border-gray-800 transition-colors">
+        <div className="flex items-center gap-2 font-bold text-red-400 mr-6 shrink-0 z-10 bg-[#172A68] dark:bg-gray-900 pr-4 transition-colors">
           <Radio className="w-4 h-4 animate-pulse" />
           BREAKING
         </div>
@@ -533,26 +694,43 @@ export default function App() {
         </div>
       </div>
 
-      <main className="p-6 max-w-[1600px] mx-auto space-y-6">
-        {/* Filter Bar */}
-        <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <main className="p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto space-y-6">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeView}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3 }}
+          >
+            {loading && data.length === 0 ? (
+              activeView === 'news' ? <NewsPortalSkeleton /> : <DashboardSkeleton />
+            ) : activeView === 'news' ? (
+              <NewsPortal 
+                newsData={recentNews} 
+                onSelectNews={setSelectedNews} 
+              />
+            ) : (
+              <div className="space-y-6">
+                {/* Filter Bar */}
+                <div className="flex flex-col gap-4 bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
           <div className="flex flex-col md:flex-row gap-4 w-full justify-between items-start md:items-center">
             <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
               {/* Filter Waktu */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-blue-600" />
-                  <h2 className="text-sm font-bold text-gray-800">Waktu:</h2>
+                  <Calendar className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200">Waktu:</h2>
                 </div>
-                <div className="flex flex-wrap bg-gray-50 border border-gray-200 rounded-lg p-1">
+                <div className="flex flex-wrap bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
                   {['Hari Ini', '7 Hari', '30 Hari', 'Tahun Ini'].map(filter => (
                     <button
                       key={filter}
                       onClick={() => setTimeFilter(filter)}
                       className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                         timeFilter === filter 
-                          ? 'bg-white text-blue-600 shadow-sm border border-gray-200' 
-                          : 'text-gray-600 hover:bg-gray-200'
+                          ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm border border-gray-200 dark:border-gray-700' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                       }`}
                     >
                       {filter}
@@ -564,13 +742,13 @@ export default function App() {
               {/* Filter Wilayah */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-blue-600" />
-                  <h2 className="text-sm font-bold text-gray-800">Wilayah:</h2>
+                  <MapPin className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200">Wilayah:</h2>
                 </div>
                 <select 
                   value={regionFilter}
                   onChange={(e) => setRegionFilter(e.target.value)}
-                  className="bg-gray-50 border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto"
+                  className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto transition-colors"
                 >
                   <option value="Semua">Semua Kabupaten/Kota</option>
                   {KAB_KOTA_JABAR.map(kabKota => (
@@ -599,84 +777,116 @@ export default function App() {
               placeholder="Cari berita, media, atau destinasi..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
+              className="block w-full pl-10 pr-10 py-2 border border-gray-200 dark:border-gray-700 rounded-lg leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Top Metric Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 bg-blue-50/50 border-2 border-blue-400 p-4 rounded-xl">
+        <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-4 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 p-4 rounded-xl transition-colors duration-300 snap-x snap-mandatory hide-scrollbar">
           {/* Total Berita */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 relative overflow-hidden">
+          <div className="min-w-[260px] md:min-w-0 shrink-0 snap-center bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-sm font-medium text-gray-500">Total Berita</h3>
-              <div className="p-1.5 bg-blue-50 rounded-md text-blue-600">
+              <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Berita</h3>
+              <div className="p-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-md text-blue-600 dark:text-blue-400">
                 <FileText className="w-4 h-4" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-800 mb-2">{totalBerita.toLocaleString('id-ID')}</div>
-            <div className="flex items-center text-xs text-gray-500 font-medium">
-              <TrendingUp className="w-3 h-3 mr-1" />
+            <div className="flex items-baseline gap-2 mb-2">
+              <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{totalBerita.toLocaleString('id-ID')}</div>
+              <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-md flex items-center">
+                <TrendingUp className="w-3 h-3 mr-0.5" /> +12%
+              </span>
+            </div>
+            <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 font-medium">
               Berdasarkan filter saat ini
             </div>
           </div>
 
           {/* Sentimen Positif */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="min-w-[260px] md:min-w-0 shrink-0 snap-center bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Positif</h3>
-              <div className="p-2 bg-green-50 rounded-lg text-green-600">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sentimen Positif</h3>
+              <div className="p-2 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
                 <Smile className="w-5 h-5" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-green-600 mb-2">{sentimentCounts.positif.toLocaleString('id-ID')}</div>
-            <div className="flex items-center text-xs text-gray-400">
-              <span className="font-medium text-green-600">{pctPos}%</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">{sentimentCounts.positif.toLocaleString('id-ID')}</div>
+              <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-md flex items-center">
+                <TrendingUp className="w-3 h-3 mr-0.5" /> +5%
+              </span>
+            </div>
+            <div className="flex items-center text-xs text-gray-400 dark:text-gray-500">
+              <span className="font-medium text-green-600 dark:text-green-400">{pctPos}%</span>
               <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Sentimen Netral */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="min-w-[260px] md:min-w-0 shrink-0 snap-center bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Netral</h3>
-              <div className="p-2 bg-yellow-50 rounded-lg text-yellow-600">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sentimen Netral</h3>
+              <div className="p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-yellow-600 dark:text-yellow-400">
                 <Meh className="w-5 h-5" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-yellow-500 mb-2">{sentimentCounts.netral.toLocaleString('id-ID')}</div>
-            <div className="flex items-center text-xs text-gray-400">
-              <span className="font-medium text-yellow-500">{pctNeu}%</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <div className="text-3xl font-bold text-yellow-500 dark:text-yellow-400">{sentimentCounts.netral.toLocaleString('id-ID')}</div>
+              <span className="text-xs font-bold text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700 px-1.5 py-0.5 rounded-md flex items-center">
+                <Minus className="w-3 h-3 mr-0.5" /> 0%
+              </span>
+            </div>
+            <div className="flex items-center text-xs text-gray-400 dark:text-gray-500">
+              <span className="font-medium text-yellow-500 dark:text-yellow-400">{pctNeu}%</span>
               <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Sentimen Negatif */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="min-w-[260px] md:min-w-0 shrink-0 snap-center bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Sentimen Negatif</h3>
-              <div className="p-2 bg-red-50 rounded-lg text-red-600">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sentimen Negatif</h3>
+              <div className="p-2 bg-red-50 dark:bg-red-900/30 rounded-lg text-red-600 dark:text-red-400">
                 <Frown className="w-5 h-5" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-red-500 mb-2">{sentimentCounts.negatif.toLocaleString('id-ID')}</div>
-            <div className="flex items-center text-xs text-gray-400">
-              <span className="font-medium text-red-500">{pctNeg}%</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <div className="text-3xl font-bold text-red-500 dark:text-red-400">{sentimentCounts.negatif.toLocaleString('id-ID')}</div>
+              <span className="text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 px-1.5 py-0.5 rounded-md flex items-center">
+                <TrendingDown className="w-3 h-3 mr-0.5" /> -2%
+              </span>
+            </div>
+            <div className="flex items-center text-xs text-gray-400 dark:text-gray-500">
+              <span className="font-medium text-red-500 dark:text-red-400">{pctNeg}%</span>
               <span className="ml-1">dari total</span>
             </div>
           </div>
 
           {/* Media Terpantau */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+          <div className="min-w-[260px] md:min-w-0 shrink-0 snap-center bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 hover:-translate-y-1 hover:shadow-lg transition-all duration-300">
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">Media Terpantau</h3>
-              <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
+              <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Media Terpantau</h3>
+              <div className="p-2 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
                 <Globe className="w-5 h-5" />
               </div>
             </div>
-            <div className="text-3xl font-bold text-gray-800 mb-2">{topMedia.totalUnique.toLocaleString('id-ID')}</div>
-            <div className="text-xs text-gray-400">
-              <span className="font-medium text-gray-600">Sumber</span>
+            <div className="flex items-baseline gap-2 mb-2">
+              <div className="text-3xl font-bold text-gray-800 dark:text-gray-100">{topMedia.totalUnique.toLocaleString('id-ID')}</div>
+              <span className="text-xs font-bold text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded-md flex items-center">
+                <TrendingUp className="w-3 h-3 mr-0.5" /> +3
+              </span>
+            </div>
+            <div className="text-xs text-gray-400 dark:text-gray-500">
+              <span className="font-medium text-gray-600 dark:text-gray-400">Sumber</span>
               <span className="ml-1">media aktif</span>
             </div>
           </div>
@@ -685,46 +895,52 @@ export default function App() {
         {/* Middle Row Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Tren Berita */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 lg:col-span-2">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-base font-bold text-gray-800">Tren Berita {timeFilter}</h2>
-                <p className="text-xs text-gray-500">Volume berita {timeFilter === 'Hari Ini' ? 'per jam' : timeFilter === 'Tahun Ini' ? 'bulanan' : timeFilter === '30 Hari' ? 'mingguan' : 'harian'}</p>
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Tren Berita {timeFilter}</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Volume berita {timeFilter === 'Hari Ini' ? 'per jam' : timeFilter === 'Tahun Ini' ? 'bulanan' : timeFilter === '30 Hari' ? 'mingguan' : 'harian'}</p>
               </div>
-              <div className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-md">
+              <div className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md">
                 {timeFilter === 'Hari Ini' ? 'Hari Ini' : timeFilter === '7 Hari' ? '7 Hari Terakhir' : timeFilter === '30 Hari' ? '30 Hari Terakhir' : 'Tahun 2025'}
               </div>
             </div>
             <div className="h-[220px] w-full mt-4 min-w-0 min-h-0">
               <ResponsiveContainer width="99%" height="100%">
-                <BarChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#9CA3AF'}} dy={10} />
+                <AreaChart data={trendData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="colorTrend" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: isDarkMode ? '#9CA3AF' : '#9CA3AF'}} dy={10} />
                   <RechartsTooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff', padding: '8px 12px' }}
+                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', backgroundColor: isDarkMode ? '#1F2937' : '#ffffff', padding: '8px 12px', color: isDarkMode ? '#F9FAFB' : '#374151' }}
                     formatter={(value: number) => [`${value.toLocaleString('id-ID')} Berita`, 'Volume']}
-                    labelStyle={{ fontWeight: 'bold', color: '#374151', marginBottom: '4px' }}
-                    cursor={{ fill: '#F3F4F6' }}
+                    labelStyle={{ fontWeight: 'bold', color: isDarkMode ? '#F9FAFB' : '#374151', marginBottom: '4px' }}
+                    cursor={{ stroke: isDarkMode ? '#374151' : '#E5E7EB', strokeWidth: 2, strokeDasharray: '5 5' }}
                   />
-                  <Bar dataKey="value" fill="#3B82F6" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                </BarChart>
+                  <Area type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={3} fillOpacity={1} fill="url(#colorTrend)" />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Distribusi Sentimen */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="mb-2">
-              <h2 className="text-base font-bold text-gray-800">Distribusi Sentimen</h2>
-              <p className="text-xs text-gray-500">Keseluruhan periode</p>
+              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Distribusi Sentimen</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Keseluruhan periode</p>
             </div>
             <div className="flex flex-col items-center justify-center h-[220px]">
               <div className="w-full h-[140px] relative min-w-0 min-h-0">
                 <ResponsiveContainer width="99%" height="100%">
                   <PieChart>
                     <RechartsTooltip 
-                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', backgroundColor: '#ffffff', padding: '8px 12px' }}
+                      contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px -2px rgb(0 0 0 / 0.1)', backgroundColor: isDarkMode ? '#1F2937' : '#ffffff', padding: '8px 12px', color: isDarkMode ? '#F9FAFB' : '#374151' }}
                       formatter={(value: number) => [`${value}%`, 'Persentase']}
-                      itemStyle={{ fontWeight: 500, color: '#374151' }}
+                      itemStyle={{ fontWeight: 500, color: isDarkMode ? '#F9FAFB' : '#374151' }}
                     />
                     <Pie
                       data={[
@@ -746,22 +962,22 @@ export default function App() {
                   </PieChart>
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-lg font-bold text-gray-800">{totalBerita}</span>
-                  <span className="text-[10px] text-gray-500">berita</span>
+                  <span className="text-lg font-bold text-gray-800 dark:text-gray-100">{totalBerita}</span>
+                  <span className="text-[10px] text-gray-500 dark:text-gray-400">berita</span>
                 </div>
               </div>
               <div className="w-full space-y-2 mt-2 px-2">
                 <div className="flex justify-between items-center text-sm">
-                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-green-500 mr-2"></div><span className="text-gray-600">Positif</span></div>
-                  <span className="font-bold text-green-600">{pctPos}%</span>
+                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-green-500 mr-2"></div><span className="text-gray-600 dark:text-gray-300">Positif</span></div>
+                  <span className="font-bold text-green-600 dark:text-green-400">{pctPos}%</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-yellow-500 mr-2"></div><span className="text-gray-600">Netral</span></div>
-                  <span className="font-bold text-yellow-600">{pctNeu}%</span>
+                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-yellow-500 mr-2"></div><span className="text-gray-600 dark:text-gray-300">Netral</span></div>
+                  <span className="font-bold text-yellow-600 dark:text-yellow-400">{pctNeu}%</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
-                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-red-500 mr-2"></div><span className="text-gray-600">Negatif</span></div>
-                  <span className="font-bold text-red-600">{pctNeg}%</span>
+                  <div className="flex items-center"><div className="w-2.5 h-2.5 rounded-full bg-red-500 mr-2"></div><span className="text-gray-600 dark:text-gray-300">Negatif</span></div>
+                  <span className="font-bold text-red-600 dark:text-red-400">{pctNeg}%</span>
                 </div>
               </div>
             </div>
@@ -771,16 +987,16 @@ export default function App() {
         {/* Third Row: Map & Top Destinations */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Peta Sebaran Berita (Heatmap) */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2 flex flex-col transition-colors duration-300">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h2 className="text-base font-bold text-gray-800 flex items-center gap-2">
-                  <MapIcon className="w-4 h-4 text-blue-600" /> Peta Sebaran Berita Jawa Barat
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <MapIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" /> Peta Sebaran Berita Jawa Barat
                 </h2>
-                <p className="text-xs text-gray-500">Intensitas pemberitaan berdasarkan wilayah (Heatmap)</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Intensitas pemberitaan berdasarkan wilayah (Heatmap)</p>
               </div>
             </div>
-            <div className="flex-1 min-h-[300px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0">
+            <div className="flex-1 min-h-[300px] w-full rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 relative z-0">
               <MapContainer 
                 center={mapCenter}
                 zoom={mapZoom}
@@ -790,7 +1006,7 @@ export default function App() {
                 <MapZoomer center={mapCenter} zoom={mapZoom} />
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  url={isDarkMode ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}
                 />
                 {mapData.map((loc, idx) => {
                   // Calculate radius and color based on count
@@ -837,26 +1053,26 @@ export default function App() {
           </div>
 
           {/* Top 5 Destinasi */}
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="mb-4">
-              <h2 className="text-base font-bold text-gray-800">Top 5 Destinasi Terpopuler</h2>
-              <p className="text-xs text-gray-500">Berdasarkan volume pemberitaan</p>
+              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Top 5 Destinasi Terpopuler</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Berdasarkan volume pemberitaan</p>
             </div>
             <div className="space-y-4">
               {topDestinations.map((dest, idx) => (
                 <div key={idx} className="relative">
                   <div className="flex justify-between text-sm mb-1">
                     <div className="flex items-center">
-                      <span className="text-gray-400 w-4 text-xs">{idx + 1}</span>
-                      <span className="font-medium text-gray-700">{dest.name}</span>
+                      <span className="text-gray-400 dark:text-gray-500 w-4 text-xs">{idx + 1}</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{dest.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-500 text-xs">{dest.count.toLocaleString('id-ID')} berita</span>
+                      <span className="text-gray-500 dark:text-gray-400 text-xs">{dest.count.toLocaleString('id-ID')} berita</span>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-1.5">
+                  <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                     <div 
-                      className={`h-1.5 rounded-full ${idx === 0 ? 'bg-blue-600' : idx === 1 ? 'bg-blue-400' : idx === 2 ? 'bg-blue-300' : idx === 3 ? 'bg-yellow-400' : 'bg-red-400'}`} 
+                      className={`h-1.5 rounded-full ${idx === 0 ? 'bg-blue-600 dark:bg-blue-500' : idx === 1 ? 'bg-blue-400 dark:bg-blue-400' : idx === 2 ? 'bg-blue-300 dark:bg-blue-300' : idx === 3 ? 'bg-yellow-400 dark:bg-yellow-500' : 'bg-red-400 dark:bg-red-500'}`} 
                       style={{ width: `${(dest.count / dest.max) * 100}%` }}
                     ></div>
                   </div>
@@ -866,50 +1082,24 @@ export default function App() {
           </div>
         </div>
 
-        {/* PIC & BY Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-            <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 PIC</h2>
-            <div className="space-y-3">
-              {topPICs.map((pic, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">{pic.name}</span>
-                  <span className="text-gray-500">{pic.count} berita</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-            <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 BY</h2>
-            <div className="space-y-3">
-              {topBYs.map((by, idx) => (
-                <div key={idx} className="flex justify-between items-center text-sm">
-                  <span className="font-medium text-gray-700">{by.name}</span>
-                  <span className="text-gray-500">{by.count} berita</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Bottom Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Berita Terkini Table */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 lg:col-span-2 flex flex-col">
-            <div className="p-5 border-b border-gray-100 flex justify-between items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2 flex flex-col transition-colors duration-300">
+            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
               <div>
-                <h2 className="text-base font-bold text-gray-800">Berita Terkini</h2>
-                <p className="text-xs text-gray-500">Monitoring real-time pemberitaan pariwisata</p>
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Berita Terkini</h2>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Monitoring real-time pemberitaan pariwisata</p>
               </div>
-              <div className="flex bg-gray-100 p-1 rounded-lg">
+              <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg">
                 {['Semua', 'Positif', 'Netral', 'Negatif'].map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
                     className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
                       activeTab === tab 
-                        ? 'bg-blue-600 text-white shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-200'
+                        ? 'bg-blue-600 dark:bg-blue-500 text-white shadow-sm' 
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
                     }`}
                   >
                     {tab}
@@ -917,9 +1107,9 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className="overflow-x-auto flex-1">
+            <div className="hidden md:block overflow-x-auto flex-1">
               <table className="w-full text-left text-sm whitespace-nowrap">
-                <thead className="text-xs text-gray-500 uppercase tracking-wider border-b border-gray-100">
+                <thead className="bg-gray-50/80 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
                   <tr>
                     <th className="px-5 py-3 font-medium">Judul Berita</th>
                     <th className="px-5 py-3 font-medium">Media</th>
@@ -929,68 +1119,153 @@ export default function App() {
                     <th className="px-5 py-3 font-medium text-right">Reach</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {filteredNews.map((news) => (
-                    <tr 
-                      key={news.id} 
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
-                      onClick={() => setSelectedNews(news)}
-                    >
-                      <td className="px-5 py-3 font-medium text-gray-800 max-w-[250px] truncate" title={news.judul}>{news.judul}</td>
-                      <td className="px-5 py-3 text-gray-500">{news.media}</td>
-                      <td className="px-5 py-3 text-gray-600">{news.destinasi}</td>
-                      <td className="px-5 py-3">
-                        <span className={`px-2 py-1 text-[10px] font-bold rounded-md ${
-                          news.sentimen === 'Positif' ? 'bg-green-100 text-green-700' :
-                          news.sentimen === 'Negatif' ? 'bg-red-100 text-red-700' :
-                          'bg-yellow-100 text-yellow-700'
-                        }`}>
-                          {news.sentimen}
-                        </span>
+                <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+                  {paginatedNews.length > 0 ? (
+                    paginatedNews.map((news) => (
+                      <tr 
+                        key={news.id} 
+                        className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
+                        onClick={() => setSelectedNews(news)}
+                      >
+                        <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200 max-w-[250px] truncate" title={news.judul}>{news.judul}</td>
+                        <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{news.media}</td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{news.destinasi}</td>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className={`w-2 h-2 rounded-full ${
+                              news.sentimen === 'Positif' ? 'bg-green-500' :
+                              news.sentimen === 'Negatif' ? 'bg-red-500' :
+                              'bg-yellow-500'
+                            }`}></span>
+                            <span className={`text-xs font-medium ${
+                              news.sentimen === 'Positif' ? 'text-green-600 dark:text-green-400' :
+                              news.sentimen === 'Negatif' ? 'text-red-600 dark:text-red-400' :
+                              'text-yellow-600 dark:text-yellow-400'
+                            }`}>
+                              {news.sentimen}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-gray-400 dark:text-gray-500 text-xs">{news.tanggal} {news.year}</td>
+                        <td className="px-5 py-3 text-gray-800 dark:text-gray-200 font-medium text-right">{news.reach}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="px-5 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <div className="flex flex-col items-center justify-center">
+                          <Search className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
+                          <p>Tidak ada berita yang sesuai dengan filter.</p>
+                        </div>
                       </td>
-                      <td className="px-5 py-3 text-gray-400 text-xs">{news.tanggal} {news.year}</td>
-                      <td className="px-5 py-3 text-gray-800 font-medium text-right">{news.reach}</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
+
+            {/* Mobile Card View for Berita Terkini */}
+            <div className="md:hidden flex flex-col gap-3 p-4">
+              {paginatedNews.length > 0 ? (
+                paginatedNews.map((news) => (
+                  <div 
+                    key={news.id} 
+                    className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                    onClick={() => setSelectedNews(news)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-xs font-bold text-blue-600 dark:text-blue-400">{news.media}</span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">{news.tanggal}</span>
+                    </div>
+                    <h4 className="font-bold text-sm text-gray-800 dark:text-gray-100 mb-3 line-clamp-2">{news.judul}</h4>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1 truncate max-w-[120px]">
+                        <MapPin className="w-3 h-3 shrink-0" /> {news.destinasi.split(',')[0]}
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`w-2 h-2 rounded-full ${
+                          news.sentimen === 'Positif' ? 'bg-green-500' :
+                          news.sentimen === 'Negatif' ? 'bg-red-500' :
+                          'bg-yellow-500'
+                        }`}></span>
+                        <span className={`text-[10px] font-medium ${
+                          news.sentimen === 'Positif' ? 'text-green-600 dark:text-green-400' :
+                          news.sentimen === 'Negatif' ? 'text-red-600 dark:text-red-400' :
+                          'text-yellow-600 dark:text-yellow-400'
+                        }`}>
+                          {news.sentimen}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-8 text-center text-gray-500 dark:text-gray-400 flex flex-col items-center">
+                  <Search className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
+                  <p className="text-sm">Tidak ada berita yang sesuai.</p>
+                </div>
+              )}
+            </div>
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  Menampilkan <span className="font-medium text-gray-900 dark:text-gray-100">{((currentPage - 1) * itemsPerPage) + 1}</span> hingga <span className="font-medium text-gray-900 dark:text-gray-100">{Math.min(currentPage * itemsPerPage, filteredNews.length)}</span> dari <span className="font-medium text-gray-900 dark:text-gray-100">{filteredNews.length}</span> berita
+                </span>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Sebelumnya
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1 text-xs font-medium rounded-md border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Sidebar (Topik Hangat & Sumber Media) */}
           <div className="space-y-6 flex flex-col">
             {/* Topik Hangat */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-              <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-4">
-                <Flame className="w-4 h-4 text-red-500" /> Topik Hangat
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+              <h2 className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4">
+                <Flame className="w-4 h-4 text-red-500 dark:text-red-400" /> Topik Hangat
               </h2>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-full">#WisataJabar</span>
-                <span className="px-3 py-1.5 bg-green-50 text-green-600 text-xs font-medium rounded-full">#FestivalPesona</span>
-                <span className="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-full">#Bandung</span>
-                <span className="px-3 py-1.5 bg-orange-50 text-orange-600 text-xs font-medium rounded-full">#Pangandaran</span>
-                <span className="px-3 py-1.5 bg-purple-50 text-purple-600 text-xs font-medium rounded-full">#ExploreWestJava</span>
-                <span className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-medium rounded-full">#Lembang</span>
-                <span className="px-3 py-1.5 bg-blue-50 text-blue-600 text-xs font-medium rounded-full">#Garut</span>
-                <span className="px-3 py-1.5 bg-teal-50 text-teal-600 text-xs font-medium rounded-full">#KunjunganWisata</span>
-                <span className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-full">#HotelBintang</span>
-                <span className="px-3 py-1.5 bg-yellow-50 text-yellow-700 text-xs font-medium rounded-full">#InfrastrukturWisata</span>
+                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#WisataJabar</span>
+                <span className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium rounded-full">#FestivalPesona</span>
+                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#Bandung</span>
+                <span className="px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full">#Pangandaran</span>
+                <span className="px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs font-medium rounded-full">#ExploreWestJava</span>
+                <span className="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium rounded-full">#Lembang</span>
+                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#Garut</span>
+                <span className="px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-xs font-medium rounded-full">#KunjunganWisata</span>
+                <span className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full">#HotelBintang</span>
+                <span className="px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium rounded-full">#InfrastrukturWisata</span>
               </div>
             </div>
 
             {/* Sumber Media Terbanyak */}
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 lg:col-span-3">
-              <h2 className="text-base font-bold text-gray-800 flex items-center gap-2 mb-4">
-                <BarChart2 className="w-4 h-4 text-blue-500" /> Sumber Media Terbanyak
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-3 transition-colors duration-300">
+              <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2 mb-4">
+                <BarChart2 className="w-4 h-4 text-blue-500 dark:text-blue-400" /> Sumber Media Terbanyak
               </h2>
               <div className="space-y-3">
                 {topMedia.list.map((media, i) => (
                   <div key={i} className="flex items-center gap-3 text-sm">
-                    <div className="w-32 text-gray-700 truncate text-xs font-medium">{media.name}</div>
-                    <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 rounded-full" style={{ width: `${media.pct}%` }}></div>
+                    <div className="w-32 text-gray-700 dark:text-gray-300 truncate text-xs font-medium">{media.name}</div>
+                    <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-blue-600 dark:bg-blue-500 rounded-full" style={{ width: `${media.pct}%` }}></div>
                     </div>
-                    <div className="w-16 text-right font-bold text-blue-600 text-xs">{media.count.toLocaleString('id-ID')}</div>
+                    <div className="w-16 text-right font-bold text-blue-600 dark:text-blue-400 text-xs">{media.count.toLocaleString('id-ID')}</div>
                   </div>
                 ))}
               </div>
@@ -998,24 +1273,24 @@ export default function App() {
 
             {/* PIC & BY Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:col-span-3">
-              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 PIC</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Top 5 PIC</h2>
                 <div className="space-y-3">
                   {topPICs.map((pic, idx) => (
                     <div key={idx} className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-gray-700">{pic.name}</span>
-                      <span className="text-gray-500">{pic.count} berita</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{pic.name}</span>
+                      <span className="text-gray-500 dark:text-gray-400">{pic.count} berita</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
-                <h2 className="text-base font-bold text-gray-800 mb-4">Top 5 BY</h2>
+              <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-4">Top 5 BY</h2>
                 <div className="space-y-3">
                   {topBYs.map((by, idx) => (
                     <div key={idx} className="flex justify-between items-center text-sm">
-                      <span className="font-medium text-gray-700">{by.name}</span>
-                      <span className="text-gray-500">{by.count} berita</span>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">{by.name}</span>
+                      <span className="text-gray-500 dark:text-gray-400">{by.count} berita</span>
                     </div>
                   ))}
                 </div>
@@ -1023,6 +1298,10 @@ export default function App() {
             </div>
           </div>
         </div>
+        </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Add custom styles for the marquee animation */}
@@ -1039,6 +1318,40 @@ export default function App() {
         data={data} 
         parseDate={parseIndonesianDate} 
       />
+
+      {/* Back to Top Button */}
+      <AnimatePresence>
+        {showScrollTop && (
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            onClick={scrollToTop}
+            className="fixed bottom-24 md:bottom-6 right-6 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg z-50 transition-colors"
+            aria-label="Kembali ke atas"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 flex justify-around items-center p-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <button 
+          onClick={() => setActiveView('dashboard')} 
+          className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+        >
+          <BarChart2 className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Dashboard</span>
+        </button>
+        <button 
+          onClick={() => setActiveView('news')} 
+          className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'news' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
+        >
+          <FileText className="w-6 h-6 mb-1" />
+          <span className="text-[10px] font-medium">Portal Berita</span>
+        </button>
+      </div>
     </div>
   );
 }
