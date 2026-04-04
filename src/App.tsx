@@ -10,7 +10,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line,
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown, Moon, Sun, ArrowUp } from 'lucide-react';
+import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown, Moon, Sun, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import NewsDetailPage from './components/NewsDetailPage';
@@ -169,6 +169,38 @@ export default function App() {
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<'dashboard' | 'news'>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Responsive sidebar
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) { // lg
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+
+    // Initial check
+    handleResize();
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleNavClick = (view: 'dashboard' | 'news') => {
+    setActiveView(view);
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
+
+  const handleReportClick = () => {
+    setIsReportModalOpen(true);
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  };
   const lastCsvTextRef = useRef<string>('');
 
   // Apply dark mode class to html element
@@ -277,9 +309,11 @@ export default function App() {
         return date >= thirtyDaysAgo && date <= now;
       });
     } else if (timeFilter === 'Tahun Ini') {
+      const twelveMonthsAgo = new Date(now);
+      twelveMonthsAgo.setMonth(now.getMonth() - 12);
       result = result.filter(row => {
         const date = parseIndonesianDate(row['TANGGAL'] || '');
-        return date.getFullYear() === now.getFullYear();
+        return date >= twelveMonthsAgo && date <= now;
       });
     }
     return result;
@@ -314,25 +348,60 @@ export default function App() {
     return mediaSet.size;
   }, [displayData]);
 
-  // Trend Data (Group by TANGGAL)
+  // Trend Data (Group by TANGGAL based on timeFilter)
   const trendData = useMemo(() => {
-    const dateCounts: Record<string, number> = {};
+    const counts: Record<string, number> = {};
+    
     displayData.forEach(row => {
-      let date = String(row['TANGGAL'] || '').trim();
-      if (!date) date = 'Unknown';
-      // Simplify date string (e.g., "Rabu, 25 Juni " -> "25 Juni")
-      const parts = date.split(',');
-      if (parts.length > 1) date = parts[1].trim();
+      const dateStr = String(row['TANGGAL'] || '').trim();
+      if (!dateStr) return;
       
-      dateCounts[date] = (dateCounts[date] || 0) + 1;
+      const parsedDate = parseIndonesianDate(dateStr);
+      let key = '';
+
+      if (timeFilter === 'Tahun Ini') {
+        // Group by Month and Year
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
+        key = `${monthNames[parsedDate.getMonth()]} '${parsedDate.getFullYear().toString().slice(2)}`;
+      } else if (timeFilter === '30 Hari') {
+        // Group by Week (approximate, e.g., "Minggu 1", "Minggu 2" relative to the month, or just week of year)
+        // A simpler approach for 30 days is to group by 7-day intervals from today, or just format as "W1", "W2"
+        // Let's use the week of the year
+        const firstDayOfYear = new Date(parsedDate.getFullYear(), 0, 1);
+        const pastDaysOfYear = (parsedDate.getTime() - firstDayOfYear.getTime()) / 86400000;
+        const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+        key = `Minggu ${weekNum}`;
+      } else {
+        // Group by Day (for 7 Hari, Hari Ini, Semua)
+        const parts = dateStr.split(',');
+        key = parts.length > 1 ? parts[1].trim() : dateStr;
+      }
+      
+      counts[key] = (counts[key] || 0) + 1;
     });
     
-    // Convert to array and take top 7 most recent/frequent
-    return Object.entries(dateCounts)
-      .map(([name, value]) => ({ name, value }))
-      .slice(0, 7)
-      .reverse(); // Chronological order if possible
-  }, [displayData]);
+    // Convert to array
+    let result = Object.entries(counts).map(([name, value]) => ({ name, value }));
+    
+    // Sort chronologically if possible. Since keys might be strings like "Minggu 12" or "25 Juni", 
+    // it's better to sort them based on their original order in displayData (which is already sorted descending by date).
+    // Actually, displayData is sorted descending. So if we just reverse the unique keys we found, it might be chronological.
+    // Let's just reverse the result array since displayData is descending.
+    result = result.reverse();
+
+    // Limit based on filter
+    if (timeFilter === 'Tahun Ini') {
+      return result.slice(-12); // Last 12 months
+    } else if (timeFilter === '30 Hari') {
+      return result.slice(-4); // Last 4 weeks
+    } else if (timeFilter === '7 Hari') {
+      return result.slice(-7); // Last 7 days
+    } else if (timeFilter === 'Hari Ini') {
+      return result; // All hours/items today
+    }
+    
+    return result.slice(-7); // Default fallback
+  }, [displayData, timeFilter]);
 
   // Top Destinations (Group by KAB/KOTA)
   const topDestinations = useMemo(() => {
@@ -452,8 +521,9 @@ export default function App() {
     return filtered;
   }, [recentNews, activeTab, searchQuery]);
 
-  // Pagination state for Berita Terkini table
+  // Pagination and Sorting state for Berita Terkini table
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>(null);
   const itemsPerPage = 10;
 
   // Reset pagination when filters change
@@ -461,13 +531,47 @@ export default function App() {
     setCurrentPage(1);
   }, [regionFilter, timeFilter, searchQuery, activeTab]);
 
-  // Calculate paginated news
+  // Handle sorting
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Calculate sorted and paginated news
+  const sortedNews = useMemo(() => {
+    let sortableItems = [...filteredNews];
+    if (sortConfig !== null) {
+      sortableItems.sort((a: any, b: any) => {
+        let aValue = a[sortConfig.key];
+        let bValue = b[sortConfig.key];
+        
+        // Special handling for dates
+        if (sortConfig.key === 'tanggal') {
+          aValue = parseIndonesianDate(aValue).getTime();
+          bValue = parseIndonesianDate(bValue).getTime();
+        }
+
+        if (aValue < bValue) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (aValue > bValue) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [filteredNews, sortConfig]);
+
   const paginatedNews = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredNews.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredNews, currentPage]);
+    return sortedNews.slice(startIndex, startIndex + itemsPerPage);
+  }, [sortedNews, currentPage]);
 
-  const totalPages = Math.ceil(filteredNews.length / itemsPerPage);
+  const totalPages = Math.ceil(sortedNews.length / itemsPerPage);
 
   // Topik Hangat (Tags)
   const topTags = useMemo(() => {
@@ -599,61 +703,161 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F3F4F6] dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans overflow-x-hidden transition-colors duration-300">
-      {/* Top Header */}
-      <header className="sticky top-0 z-50 bg-[#1E3A8A]/95 dark:bg-gray-950/95 backdrop-blur-md text-white shadow-md border-b border-blue-800/50 dark:border-gray-800/50 transition-all">
-        <div className="px-4 py-3 flex justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8 md:w-10 md:h-10 drop-shadow-md" />
-            <div>
-              <h1 className="text-sm md:text-lg font-bold leading-tight flex items-center gap-2">
-                Media Intelligence <span className="hidden sm:inline">Pariwisata Jabar</span>
-              </h1>
-              <p className="text-[10px] md:text-xs text-blue-200 hidden sm:block">Ringkasan Informasi Media & Sentimen Berita • Real-time</p>
+    <div className="flex h-screen bg-[#F3F4F6] dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans overflow-hidden transition-colors duration-300">
+      
+      {/* Sidebar */}
+      <aside 
+        className={`hidden md:flex bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex-col transition-all duration-300 z-20 ${
+          isSidebarOpen ? 'w-64' : 'w-20'
+        }`}
+      >
+        {/* Sidebar Header */}
+        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
+          <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'justify-center w-full'}`}>
+            <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8 shrink-0" />
+            {isSidebarOpen && (
+              <div className="flex flex-col whitespace-nowrap">
+                <span className="font-bold text-sm text-blue-900 dark:text-blue-100">Media Intelligence</span>
+                <span className="text-[10px] text-gray-500 dark:text-gray-400">Pariwisata Jabar</span>
+              </div>
+            )}
+          </div>
+          {isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(false)}
+              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Sidebar Navigation */}
+        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
+          {!isSidebarOpen && (
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="w-full flex justify-center p-2 mb-4 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <LayoutDashboard className="w-5 h-5" />
+            </button>
+          )}
+          
+          <button
+            onClick={() => handleNavClick('dashboard')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+              activeView === 'dashboard' 
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+            }`}
+            title="Dashboard"
+          >
+            <BarChart2 className="w-5 h-5 shrink-0" />
+            {isSidebarOpen && <span>Dashboard</span>}
+          </button>
+          
+          <button
+            onClick={() => handleNavClick('news')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+              activeView === 'news' 
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+            }`}
+            title="Portal Berita"
+          >
+            <FileText className="w-5 h-5 shrink-0" />
+            {isSidebarOpen && <span>Portal Berita</span>}
+          </button>
+
+          <button
+            onClick={handleReportClick}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50`}
+            title="Laporan"
+          >
+            <FileDown className="w-5 h-5 shrink-0" />
+            {isSidebarOpen && <span>Laporan</span>}
+          </button>
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title={isDarkMode ? "Mode Terang" : "Mode Gelap"}
+          >
+            {isDarkMode ? <Sun className="w-5 h-5 shrink-0" /> : <Moon className="w-5 h-5 shrink-0" />}
+            {isSidebarOpen && <span>{isDarkMode ? 'Mode Terang' : 'Mode Gelap'}</span>}
+          </button>
+          
+          <div className="flex items-center gap-3 px-3 py-2 mt-2">
+            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
+              <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">A</span>
+            </div>
+            {isSidebarOpen && (
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">Admin User</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@jabarprov.go.id</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top Header */}
+        <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
+          <div className="flex items-center gap-3 md:gap-4 flex-1">
+            {/* Mobile Logo */}
+            <div className="md:hidden flex items-center shrink-0">
+              <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8" />
+            </div>
+            
+            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 hidden sm:block whitespace-nowrap">
+              {activeView === 'dashboard' ? 'Dashboard Analitik' : 'Portal Berita'}
+            </h1>
+            
+            {/* Search Bar in Header */}
+            <div className="max-w-md w-full relative ml-0 sm:ml-4 lg:ml-8">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Cari berita atau media..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="block w-full pl-9 pr-9 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
-          
-          {/* Navigation Tabs (Desktop Only) */}
-          <div className="hidden md:flex bg-white/10 p-1 rounded-lg">
-            <button
-              onClick={() => setActiveView('dashboard')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                activeView === 'dashboard' 
-                  ? 'bg-white text-blue-900 shadow-sm' 
-                  : 'text-blue-100 hover:bg-white/10'
-              }`}
-            >
-              <BarChart2 className="w-4 h-4" />
-              Dashboard
-            </button>
-            <button
-              onClick={() => setActiveView('news')}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all flex items-center justify-center gap-2 ${
-                activeView === 'news' 
-                  ? 'bg-white text-blue-900 shadow-sm' 
-                  : 'text-blue-100 hover:bg-white/10'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              Portal Berita
-            </button>
-          </div>
-          
-          <div className="flex items-center gap-3 md:gap-4">
+
+          <div className="flex items-center gap-3 md:gap-4 ml-3 md:ml-4 shrink-0">
+            {/* Mobile Dark Mode Toggle */}
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
-              className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="md:hidden p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               title={isDarkMode ? "Mode Terang" : "Mode Gelap"}
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
             </button>
+
             <div 
               className={`flex items-center gap-2 px-2 py-1.5 md:px-3 rounded-full border ${
-                error ? 'bg-red-500/20 border-red-500/30 text-red-100' : 'bg-white/10 border-white/20'
+                error ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
               }`}
               title={error ? `Error: ${error}` : 'Terhubung ke Google Sheets'}
             >
-              <span className="relative flex h-2.5 w-2.5">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
                 {!error && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
                 <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${error ? 'bg-red-500' : 'bg-green-500'}`}></span>
               </span>
@@ -661,40 +865,45 @@ export default function App() {
             </div>
             
             <div className="text-right hidden lg:block">
-              <div className="text-sm font-medium">{formatDate(currentTime)}</div>
-              <div className="text-xs text-blue-200">{formatTime(currentTime)}</div>
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{formatDate(currentTime)}</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">{formatTime(currentTime)}</div>
+            </div>
+            
+            {/* Mobile Profile Avatar */}
+            <div className="md:hidden w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
+              <span className="text-blue-700 dark:text-blue-300 font-bold text-xs">A</span>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Breaking News Ticker */}
-      <div className="bg-[#172A68] dark:bg-gray-900 text-white px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap border-b border-blue-900 dark:border-gray-800 transition-colors">
-        <div className="flex items-center gap-2 font-bold text-red-400 mr-6 shrink-0 z-10 bg-[#172A68] dark:bg-gray-900 pr-4 transition-colors">
-          <Radio className="w-4 h-4 animate-pulse" />
-          BREAKING
+        {/* Breaking News Ticker */}
+        <div className="bg-[#172A68] dark:bg-gray-900 text-white px-4 lg:px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap shrink-0 border-b border-blue-900 dark:border-gray-800">
+          <div className="flex items-center gap-2 font-bold text-red-400 mr-6 shrink-0 z-10 bg-[#172A68] dark:bg-gray-900 pr-4 transition-colors">
+            <Radio className="w-4 h-4 animate-pulse" />
+            BREAKING
+          </div>
+          <div className="animate-[marquee_60s_linear_infinite] inline-block">
+            {recentNews.length > 0 ? (
+              recentNews.slice(0, 10).map((news, idx) => (
+                <span 
+                  key={idx} 
+                  className={`mx-4 ${
+                    news.sentimen === 'Positif' ? 'text-green-400' : 
+                    news.sentimen === 'Negatif' ? 'text-red-400' : 
+                    'text-gray-300'
+                  }`}
+                >
+                  {news.judul} •
+                </span>
+              ))
+            ) : (
+              <span className="mx-4 text-gray-400">Memuat berita terbaru...</span>
+            )}
+          </div>
         </div>
-        <div className="animate-[marquee_60s_linear_infinite] inline-block">
-          {recentNews.length > 0 ? (
-            recentNews.slice(0, 10).map((news, idx) => (
-              <span 
-                key={idx} 
-                className={`mx-4 ${
-                  news.sentimen === 'Positif' ? 'text-green-400' : 
-                  news.sentimen === 'Negatif' ? 'text-red-400' : 
-                  'text-gray-300'
-                }`}
-              >
-                {news.judul} •
-              </span>
-            ))
-          ) : (
-            <span className="mx-4 text-gray-400">Memuat berita terbaru...</span>
-          )}
-        </div>
-      </div>
 
-      <main className="p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto space-y-6">
+      <div className="flex-1 overflow-y-auto">
+        <main className="p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto space-y-6">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeView}
@@ -730,7 +939,7 @@ export default function App() {
                       className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                         timeFilter === filter 
                           ? 'bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm border border-gray-200 dark:border-gray-700' 
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
                       }`}
                     >
                       {filter}
@@ -746,21 +955,36 @@ export default function App() {
                   <h2 className="text-sm font-bold text-gray-800 dark:text-gray-200">Wilayah:</h2>
                 </div>
                 <select 
+                  className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-800 dark:text-gray-200 text-xs rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2 transition-colors"
                   value={regionFilter}
                   onChange={(e) => setRegionFilter(e.target.value)}
-                  className="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2 outline-none cursor-pointer w-full sm:w-auto transition-colors"
                 >
-                  <option value="Semua">Semua Kabupaten/Kota</option>
-                  {KAB_KOTA_JABAR.map(kabKota => (
-                    <option key={kabKota} value={kabKota}>{kabKota}</option>
+                  <option value="Semua">Semua Wilayah</option>
+                  {KAB_KOTA_JABAR.map(kab => (
+                    <option key={kab} value={kab}>{kab}</option>
                   ))}
                 </select>
               </div>
+              
+              {/* Reset Filter Button */}
+              {(timeFilter !== '7 Hari' || regionFilter !== 'Semua' || searchQuery !== '' || activeTab !== 'Semua') && (
+                <button
+                  onClick={() => {
+                    setTimeFilter('7 Hari');
+                    setRegionFilter('Semua');
+                    setSearchQuery('');
+                    setActiveTab('Semua');
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors border border-red-100 dark:border-red-900/30"
+                >
+                  <X className="w-3.5 h-3.5" /> Reset Filter
+                </button>
+              )}
             </div>
             
             <button
               onClick={() => setIsReportModalOpen(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full md:w-auto justify-center"
+              className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full md:w-auto justify-center"
             >
               <FileDown className="w-4 h-4" />
               Generate Laporan
@@ -898,7 +1122,9 @@ export default function App() {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Tren Berita {timeFilter}</h2>
+                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">
+                  Tren Berita {timeFilter === '30 Hari' ? '4 Minggu Terakhir' : timeFilter === 'Tahun Ini' ? '12 Bulan Terakhir' : timeFilter}
+                </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">Volume berita {timeFilter === 'Hari Ini' ? 'per jam' : timeFilter === 'Tahun Ini' ? 'bulanan' : timeFilter === '30 Hari' ? 'mingguan' : 'harian'}</p>
               </div>
               <div className="text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md">
@@ -1111,12 +1337,33 @@ export default function App() {
               <table className="w-full text-left text-sm whitespace-nowrap">
                 <thead className="bg-gray-50/80 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider border-b border-gray-200 dark:border-gray-700">
                   <tr>
-                    <th className="px-5 py-3 font-medium">Judul Berita</th>
-                    <th className="px-5 py-3 font-medium">Media</th>
-                    <th className="px-5 py-3 font-medium">Destinasi</th>
-                    <th className="px-5 py-3 font-medium">Sentimen</th>
-                    <th className="px-5 py-3 font-medium">Tanggal (Tahun)</th>
-                    <th className="px-5 py-3 font-medium text-right">Reach</th>
+                    {[
+                      { key: 'judul', label: 'Judul Berita' },
+                      { key: 'media', label: 'Media' },
+                      { key: 'destinasi', label: 'Destinasi' },
+                      { key: 'sentimen', label: 'Sentimen' },
+                      { key: 'tanggal', label: 'Tanggal (Tahun)' },
+                      { key: 'reach', label: 'Reach', align: 'right' }
+                    ].map((col) => (
+                      <th 
+                        key={col.key} 
+                        className={`px-5 py-3 font-medium hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${col.align === 'right' ? 'text-right' : ''}`}
+                      >
+                        <div className="resize-x overflow-hidden min-w-[80px] max-w-[500px] pr-2">
+                          <div 
+                            className={`flex items-center gap-1 cursor-pointer ${col.align === 'right' ? 'justify-end' : ''}`}
+                            onClick={() => handleSort(col.key)}
+                          >
+                            {col.label}
+                            {sortConfig?.key === col.key ? (
+                              sortConfig.direction === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 opacity-30" />
+                            )}
+                          </div>
+                        </div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
@@ -1128,8 +1375,8 @@ export default function App() {
                         onClick={() => setSelectedNews(news)}
                       >
                         <td className="px-5 py-3 font-medium text-gray-800 dark:text-gray-200 max-w-[250px] truncate" title={news.judul}>{news.judul}</td>
-                        <td className="px-5 py-3 text-gray-500 dark:text-gray-400">{news.media}</td>
-                        <td className="px-5 py-3 text-gray-600 dark:text-gray-300">{news.destinasi}</td>
+                        <td className="px-5 py-3 text-gray-500 dark:text-gray-400 max-w-[150px] truncate" title={news.media}>{news.media}</td>
+                        <td className="px-5 py-3 text-gray-600 dark:text-gray-300 max-w-[150px] truncate" title={news.destinasi}>{news.destinasi}</td>
                         <td className="px-5 py-3">
                           <div className="flex items-center gap-2">
                             <span className={`w-2 h-2 rounded-full ${
@@ -1240,16 +1487,31 @@ export default function App() {
                 <Flame className="w-4 h-4 text-red-500 dark:text-red-400" /> Topik Hangat
               </h2>
               <div className="flex flex-wrap gap-2">
-                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#WisataJabar</span>
-                <span className="px-3 py-1.5 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-xs font-medium rounded-full">#FestivalPesona</span>
-                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#Bandung</span>
-                <span className="px-3 py-1.5 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-xs font-medium rounded-full">#Pangandaran</span>
-                <span className="px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs font-medium rounded-full">#ExploreWestJava</span>
-                <span className="px-3 py-1.5 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-xs font-medium rounded-full">#Lembang</span>
-                <span className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-full">#Garut</span>
-                <span className="px-3 py-1.5 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-xs font-medium rounded-full">#KunjunganWisata</span>
-                <span className="px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs font-medium rounded-full">#HotelBintang</span>
-                <span className="px-3 py-1.5 bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-medium rounded-full">#InfrastrukturWisata</span>
+                {topTags.length > 0 ? (
+                  topTags.map((tag, idx) => {
+                    const colors = [
+                      'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+                      'bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400',
+                      'bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400',
+                      'bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400',
+                      'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+                      'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
+                      'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
+                    ];
+                    const colorClass = colors[idx % colors.length];
+                    return (
+                      <button 
+                        key={idx}
+                        onClick={() => setSearchQuery(tag.replace('#', ''))}
+                        className={`px-3 py-1.5 ${colorClass} text-xs font-medium rounded-full hover:opacity-80 transition-opacity cursor-pointer`}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-gray-500">Tidak ada topik hangat</span>
+                )}
               </div>
             </div>
 
@@ -1303,6 +1565,7 @@ export default function App() {
           </motion.div>
         </AnimatePresence>
       </main>
+      </div>
 
       {/* Add custom styles for the marquee animation */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -1341,16 +1604,24 @@ export default function App() {
           onClick={() => setActiveView('dashboard')} 
           className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
         >
-          <BarChart2 className="w-6 h-6 mb-1" />
+          <BarChart2 className="w-5 h-5 mb-1" />
           <span className="text-[10px] font-medium">Dashboard</span>
         </button>
         <button 
           onClick={() => setActiveView('news')} 
           className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'news' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
         >
-          <FileText className="w-6 h-6 mb-1" />
+          <FileText className="w-5 h-5 mb-1" />
           <span className="text-[10px] font-medium">Portal Berita</span>
         </button>
+        <button 
+          onClick={() => setIsReportModalOpen(true)} 
+          className={`flex flex-col items-center p-2 w-full transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100`}
+        >
+          <FileDown className="w-5 h-5 mb-1" />
+          <span className="text-[10px] font-medium">Laporan</span>
+        </button>
+      </div>
       </div>
     </div>
   );

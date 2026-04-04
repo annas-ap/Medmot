@@ -164,10 +164,10 @@ export default function NewsPortal({ newsData, onSelectNews }: NewsPortalProps) 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                     />
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent"></div>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent/10"></div>
                 </div>
                 
-                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 flex flex-col justify-end z-10">
+                <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 flex flex-col justify-end z-10 bg-gradient-to-t from-black/90 via-black/60 to-transparent pt-24">
                   <div className="flex items-center gap-2 text-xs text-gray-300 mb-3">
                     <span className="font-bold text-blue-400 uppercase tracking-wider">{topNews[0].media}</span>
                     <span>•</span>
@@ -176,9 +176,6 @@ export default function NewsPortal({ newsData, onSelectNews }: NewsPortalProps) 
                   <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold text-white leading-tight group-hover:text-blue-300 transition-colors line-clamp-2 md:line-clamp-3 mb-3 text-shadow-md">
                     {topNews[0].judul}
                   </h2>
-                  <p className="text-sm md:text-base text-gray-300 line-clamp-2 leading-relaxed hidden md:block max-w-3xl text-shadow-sm">
-                    {topNews[0].isiBerita || "Klik untuk membaca selengkapnya..."}
-                  </p>
                 </div>
               </div>
 

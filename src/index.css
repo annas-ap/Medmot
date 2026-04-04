@@ -13,6 +13,10 @@
   --radius-card: 1rem;
 }
 
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text-primary);
