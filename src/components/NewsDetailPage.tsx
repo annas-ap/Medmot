@@ -96,7 +96,7 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
             {news.analisis && (
               <div className="mt-8 p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl transition-colors duration-300">
                 <h3 className="text-lg font-bold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
-                  <span className="text-xl">💡</span> Analisis Media Monitoring News Online
+                  <span className="text-xl">💡</span> Analisis Media Intelligence
                 </h3>
                 <p className="text-blue-800 dark:text-blue-200 text-sm sm:text-base">{news.analisis}</p>
               </div>
@@ -138,7 +138,7 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Berita Terkait</h3>
                 </div>
-                <div className="flex gap-2 sm:flex hidden">
+                <div className="flex gap-2">
                   <button 
                     onClick={() => {
                       const container = document.getElementById('related-news-carousel');
@@ -161,10 +161,9 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                   </button>
                 </div>
               </div>
-              
               <div 
                 id="related-news-carousel"
-                className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 items-stretch"
+                className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 sm:-mx-8 sm:px-8 items-stretch"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {relatedNews.filter(n => n.id !== news.id).slice(0, 10).map((related, idx) => (
@@ -174,7 +173,7 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.05 }}
                     whileHover={{ y: -8 }}
-                    className="group cursor-pointer flex flex-col bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-xl dark:hover:shadow-blue-900/20 transition-all min-w-[85%] sm:min-w-[300px] md:min-w-[320px] snap-center sm:snap-start shrink-0 h-full" 
+                    className="group cursor-pointer flex flex-col bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-xl dark:hover:shadow-blue-900/20 transition-all w-[280px] sm:w-[320px] md:w-[350px] snap-start shrink-0 h-auto" 
                     onClick={() => onSelectNews(related)}
                   >
                     <div className="w-full aspect-video bg-gray-100 dark:bg-gray-700 overflow-hidden relative shrink-0">
@@ -198,29 +197,28 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                           {related.sentimen}
                         </span>
                       </div>
-
-                      <div className="absolute bottom-3 left-3 right-3 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-                        <span className="text-white text-xs font-bold flex items-center gap-1.5">
-                          Baca Selengkapnya <ChevronRight className="w-3 h-3" />
-                        </span>
-                      </div>
                     </div>
                     
-                    <div className="p-4 flex flex-col flex-1">
+                    <div className="p-5 flex flex-col flex-1">
                       <div className="flex items-center gap-2 mb-3 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">
-                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[100px]"><Globe className="w-3 h-3"/> {related.media}</span>
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[120px]"><Globe className="w-3 h-3"/> {related.media}</span>
                         <span className="text-gray-300 dark:text-gray-600">•</span>
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3"/> {related.tanggal}</span>
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3"/> {related.tanggal.split(',')[0]}</span>
                       </div>
                       <h4 
-                        className="text-sm font-bold text-gray-800 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-relaxed"
+                        className="text-base font-bold text-gray-800 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug mb-4"
                         title={related.judul}
                       >
                         {related.judul}
                       </h4>
-                      <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
-                        <MapPin className="w-3 h-3" />
-                        <span className="truncate">{related.destinasi}</span>
+                      <div className="mt-auto pt-4 border-t border-gray-50 dark:border-gray-700/50 flex items-center justify-between text-[10px] text-gray-400 dark:text-gray-500">
+                        <div className="flex items-center gap-1.5 truncate max-w-[180px]">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate">{related.destinasi}</span>
+                        </div>
+                        <span className="text-blue-600 dark:text-blue-400 font-bold flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          Baca <ChevronRight className="w-3 h-3" />
+                        </span>
                       </div>
                     </div>
                   </motion.div>
