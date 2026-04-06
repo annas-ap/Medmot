@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, Calendar, Globe, MapPin, TrendingUp, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Calendar, Globe, MapPin, TrendingUp, ExternalLink, ChevronLeft, ChevronRight, Newspaper } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface NewsDetailPageProps {
   news: any;
@@ -123,84 +124,116 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
         </div>
 
         {/* Related News Carousel */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-5 sm:p-8 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300">
-          <div className="flex items-center justify-between mb-6 border-b border-gray-100 dark:border-gray-700 pb-4">
-            <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Berita Terkait</h3>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => {
-                  const container = document.getElementById('related-news-carousel');
-                  if (container) container.scrollBy({ left: -300, behavior: 'smooth' });
-                }}
-                className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4" />
-              </button>
-              <button 
-                onClick={() => {
-                  const container = document.getElementById('related-news-carousel');
-                  if (container) container.scrollBy({ left: 300, behavior: 'smooth' });
-                }}
-                className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 rotate-180" />
-              </button>
-            </div>
-          </div>
-          
-          <div 
-            id="related-news-carousel"
-            className="flex overflow-x-auto gap-6 pb-4 snap-x snap-mandatory hide-scrollbar"
-            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-          >
-            {relatedNews.filter(n => n.id !== news.id).slice(0, 8).map(related => (
-              <div 
-                key={related.id} 
-                className="group cursor-pointer flex flex-col gap-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl p-3 border border-gray-100 dark:border-gray-600 hover:shadow-md dark:hover:shadow-gray-900/50 transition-all hover:-translate-y-1 min-w-[280px] sm:min-w-[320px] snap-start shrink-0" 
-                onClick={() => onSelectNews(related)}
-              >
-                <div className="w-full aspect-video bg-gray-200 dark:bg-gray-600 rounded-lg overflow-hidden relative">
-                  <img 
-                    src={related.urlFoto || `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/400/225`} 
-                    alt={related.judul} 
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
-                    referrerPolicy="no-referrer" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/400/225`;
-                    }}
-                  />
-                  <div className="absolute top-2 right-2">
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-md shadow-sm ${
-                      related.sentimen === 'Positif' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 
-                      related.sentimen === 'Negatif' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400' : 
-                      'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400'
-                    }`}>
-                      {related.sentimen}
-                    </span>
+        <AnimatePresence>
+          {relatedNews.filter(n => n.id !== news.id).length > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 sm:p-8 shadow-sm border border-gray-100 dark:border-gray-700 transition-colors duration-300"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                    <Newspaper className="w-5 h-5" />
                   </div>
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Berita Terkait</h3>
                 </div>
-                <div className="flex flex-col flex-1">
-                  <div className="flex items-center gap-2 mb-2 text-xs text-gray-500 dark:text-gray-400 font-medium">
-                    <span className="flex items-center gap-1"><Globe className="w-3 h-3"/> {related.media}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3"/> {related.tanggal}</span>
-                  </div>
-                  <h4 
-                    className="text-sm font-bold text-gray-800 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-snug mb-2"
-                    title={related.judul}
+                <div className="flex gap-2 sm:flex hidden">
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('related-news-carousel');
+                      if (container) container.scrollBy({ left: -350, behavior: 'smooth' });
+                    }}
+                    className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-600 transition-all shadow-sm active:scale-95"
+                    aria-label="Previous"
                   >
-                    {related.judul}
-                  </h4>
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const container = document.getElementById('related-news-carousel');
+                      if (container) container.scrollBy({ left: 350, behavior: 'smooth' });
+                    }}
+                    className="p-2.5 rounded-xl bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 border border-gray-200 dark:border-gray-600 transition-all shadow-sm active:scale-95"
+                    aria-label="Next"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
-            ))}
-          </div>
-          <style>{`
-            .hide-scrollbar::-webkit-scrollbar {
-              display: none;
-            }
-          `}</style>
-        </div>
+              
+              <div 
+                id="related-news-carousel"
+                className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 items-stretch"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {relatedNews.filter(n => n.id !== news.id).slice(0, 10).map((related, idx) => (
+                  <motion.div 
+                    key={related.id} 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: idx * 0.05 }}
+                    whileHover={{ y: -8 }}
+                    className="group cursor-pointer flex flex-col bg-white dark:bg-gray-800/50 rounded-2xl overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800 hover:shadow-xl dark:hover:shadow-blue-900/20 transition-all min-w-[85%] sm:min-w-[300px] md:min-w-[320px] snap-center sm:snap-start shrink-0 h-full" 
+                    onClick={() => onSelectNews(related)}
+                  >
+                    <div className="w-full aspect-video bg-gray-100 dark:bg-gray-700 overflow-hidden relative shrink-0">
+                      <img 
+                        src={related.urlFoto || `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/640/360`} 
+                        alt={related.judul} 
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" 
+                        referrerPolicy="no-referrer" 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = `https://picsum.photos/seed/${related.id + related.destinasi.replace(/\s+/g, '')}/640/360`;
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      
+                      <div className="absolute top-3 left-3">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-lg backdrop-blur-md ${
+                          related.sentimen === 'Positif' ? 'bg-green-500/90 text-white' : 
+                          related.sentimen === 'Negatif' ? 'bg-red-500/90 text-white' : 
+                          'bg-amber-500/90 text-white'
+                        }`}>
+                          {related.sentimen}
+                        </span>
+                      </div>
+
+                      <div className="absolute bottom-3 left-3 right-3 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+                        <span className="text-white text-xs font-bold flex items-center gap-1.5">
+                          Baca Selengkapnya <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 flex flex-col flex-1">
+                      <div className="flex items-center gap-2 mb-3 text-[10px] text-gray-500 dark:text-gray-400 font-bold uppercase tracking-widest">
+                        <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400 truncate max-w-[100px]"><Globe className="w-3 h-3"/> {related.media}</span>
+                        <span className="text-gray-300 dark:text-gray-600">•</span>
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3"/> {related.tanggal}</span>
+                      </div>
+                      <h4 
+                        className="text-sm font-bold text-gray-800 dark:text-gray-100 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors leading-relaxed"
+                        title={related.judul}
+                      >
+                        {related.judul}
+                      </h4>
+                      <div className="mt-auto pt-3 flex items-center gap-1.5 text-[10px] text-gray-400 dark:text-gray-500">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{related.destinasi}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              <style>{`
+                .hide-scrollbar::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
