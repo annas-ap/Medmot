@@ -14,17 +14,16 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-export type ViewType = 'dashboard' | 'news' | 'map' | 'insight' | 'settings';
+export type ViewType = 'dashboard' | 'news' | 'map' | 'insight' | 'report' | 'settings';
 
 interface SidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  onOpenExport: () => void;
 }
 
-export default function Sidebar({ activeView, onViewChange, isOpen, setIsOpen, onOpenExport }: SidebarProps) {
+export default function Sidebar({ activeView, onViewChange, isOpen, setIsOpen }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'news', label: 'Berita Terkini', icon: Radio },
@@ -33,7 +32,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, setIsOpen, o
   ];
 
   const bottomItems = [
-    { id: 'export', label: 'Ekspor Laporan', icon: FileDown, action: onOpenExport },
+    { id: 'report', label: 'Report Studio', icon: FileDown },
     { id: 'settings', label: 'Pengaturan', icon: Settings },
   ];
 
@@ -122,7 +121,7 @@ export default function Sidebar({ activeView, onViewChange, isOpen, setIsOpen, o
           {bottomItems.map((item) => (
             <button
               key={item.id}
-              onClick={item.action ? item.action : () => onViewChange(item.id as ViewType)}
+              onClick={() => onViewChange(item.id as ViewType)}
               className={`w-full flex items-center gap-3 p-3 rounded-xl transition-all group relative ${
                 activeView === item.id
                   ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
@@ -176,11 +175,13 @@ export default function Sidebar({ activeView, onViewChange, isOpen, setIsOpen, o
           </button>
         ))}
         <button
-          onClick={onOpenExport}
-          className="flex flex-col items-center justify-center gap-1 flex-1 h-full text-gray-500 dark:text-gray-400"
+          onClick={() => onViewChange('report')}
+          className={`flex flex-col items-center justify-center gap-1 flex-1 h-full transition-colors ${
+            activeView === 'report' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
+          }`}
         >
           <FileDown className="w-5 h-5" />
-          <span className="text-[10px] font-bold">Ekspor</span>
+          <span className="text-[10px] font-bold">Laporan</span>
         </button>
         <button
           onClick={() => onViewChange('settings')}

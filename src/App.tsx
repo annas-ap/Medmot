@@ -14,7 +14,7 @@ import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Min
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import NewsDetailPage from './components/NewsDetailPage';
-import ReportGenerator from './components/ReportGenerator';
+import ReportStudio from './components/ReportStudio';
 import NewsPortal from './components/NewsPortal';
 import Sidebar, { ViewType } from './components/Sidebar';
 import { useFilters } from './contexts/FilterContext';
@@ -150,7 +150,6 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([-6.9147, 107.6098]);
   const [mapZoom, setMapZoom] = useState(8);
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [activeView, setActiveView] = useState<ViewType>(() => {
     const params = new URLSearchParams(window.location.search);
     return (params.get('view') as ViewType) || 'dashboard';
@@ -712,7 +711,6 @@ export default function App() {
         onViewChange={setActiveView} 
         isOpen={isSidebarOpen} 
         setIsOpen={setIsSidebarOpen}
-        onOpenExport={() => setIsReportModalOpen(true)}
       />
 
       <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[260px]' : 'lg:ml-[80px]'}`}>
@@ -730,7 +728,8 @@ export default function App() {
                 {activeView === 'dashboard' ? 'Dashboard Utama' : 
                  activeView === 'news' ? 'Portal Berita' : 
                  activeView === 'map' ? 'Peta Sebaran' : 
-                 activeView === 'insight' ? 'AI Strategic Insight' : 'Pengaturan Sistem'}
+                 activeView === 'insight' ? 'AI Strategic Insight' : 
+                 activeView === 'report' ? 'Report Studio' : 'Pengaturan Sistem'}
               </h1>
               <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
                 Media Monitoring News Online
@@ -968,6 +967,16 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            ) : activeView === 'report' ? (
+              <ReportStudio 
+                data={displayData} 
+                trendData={trendData} 
+                sentimentCounts={sentimentCounts} 
+                topMedia={topMedia} 
+                recentNews={recentNews}
+                topDestinations={topDestinations}
+                mapData={mapData}
+              />
             ) : activeView === 'settings' ? (
               <div className="space-y-6">
                 <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-2xl">
@@ -1069,7 +1078,7 @@ export default function App() {
             </div>
             
             <button
-              onClick={() => setIsReportModalOpen(true)}
+              onClick={() => setActiveView('report')}
               className="hidden md:flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full md:w-auto justify-center"
             >
               <FileDown className="w-4 h-4" />
@@ -1668,13 +1677,6 @@ export default function App() {
           100% { transform: translateX(100%); }
         }
       `}} />
-
-      <ReportGenerator 
-        isOpen={isReportModalOpen} 
-        onClose={() => setIsReportModalOpen(false)} 
-        data={data} 
-        parseDate={parseIndonesianDate} 
-      />
 
       {/* Back to Top Button */}
       <AnimatePresence>
