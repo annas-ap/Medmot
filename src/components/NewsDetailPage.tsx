@@ -96,7 +96,7 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
             {news.analisis && (
               <div className="mt-8 p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl transition-colors duration-300">
                 <h3 className="text-lg font-bold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
-                  <span className="text-xl">💡</span> Analisis Media Intelligence
+                  <span className="text-xl">💡</span> Analisis Media Monitoring News Online
                 </h3>
                 <p className="text-blue-800 dark:text-blue-200 text-sm sm:text-base">{news.analisis}</p>
               </div>

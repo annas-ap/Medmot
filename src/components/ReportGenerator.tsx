@@ -5,10 +5,11 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as htmlToImage from 'html-to-image';
 import Markdown from 'react-markdown';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, LabelList } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { MapContainer, GeoJSON, TileLayer, CircleMarker } from 'react-leaflet';
 import L from 'leaflet';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence as MotionAnimatePresence } from 'motion/react';
+import { useToast } from '../contexts/ToastContext';
 
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -41,6 +42,7 @@ interface ReportGeneratorProps {
 }
 
 export default function ReportGenerator({ isOpen, onClose, data, parseDate }: ReportGeneratorProps) {
+  const { showToast, updateToast, hideToast } = useToast();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -56,8 +58,6 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
   const [geoJson, setGeoJson] = useState<any>(null);
   
   const reportRef = useRef<HTMLDivElement>(null);
-  const pdfRef = useRef<HTMLDivElement>(null);
-  const infographicRef = useRef<HTMLDivElement>(null);
 
   // Fetch GeoJSON for West Java
   React.useEffect(() => {
@@ -127,10 +127,12 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
     setIsGenerating(true);
     setProgressText('Menyiapkan Data...');
+    const toastId = showToast('📄 Laporan sedang disiapkan...', 'loading');
 
     // Ensure GeoJSON is loaded before proceeding
     if (!geoJson) {
       setProgressText('Menunggu Data Peta West Java...');
+      updateToast(toastId, { message: '🗺️ Menunggu data peta West Java...', progress: 10 });
       // Wait up to 5 seconds for geoJson
       for (let i = 0; i < 10; i++) {
         if (geoJson) break;
@@ -139,6 +141,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     }
 
     setProgressText('Memfilter data...');
+    updateToast(toastId, { message: '🔍 Memfilter data...', progress: 20 });
 
     try {
       // 1. Filter Data
@@ -153,7 +156,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       });
 
       if (filteredData.length === 0) {
-        alert('Tidak ada data berita pada rentang tanggal tersebut.');
+        updateToast(toastId, { message: '✗ Tidak ada data pada rentang tanggal tersebut.', type: 'error' });
         setIsGenerating(false);
         return;
       }
@@ -186,16 +189,16 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       const topDestinations = Object.entries(destCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([name, count]) => ({ name, count })) || [];
+        .map(([name, count]) => ({ name, count }));
 
       const topMedia = Object.entries(mediaCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
-        .map(([name, count]) => ({ name, count })) || [];
+        .map(([name, count]) => ({ name, count }));
 
       const allRegions = Object.entries(destCounts)
         .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => ({ name, count })) || [];
+        .map(([name, count]) => ({ name, count }));
 
       // Map Data based on real KAB/KOTA
       const coordinates: Record<string, [number, number]> = {
@@ -232,6 +235,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
       // 2. Call AI for Analysis and Recommendations
       setProgressText('Menyusun analisis dengan AI...');
+      updateToast(toastId, { message: '🤖 Menyusun analisis dengan AI...', progress: 40 });
       
       if (!process.env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY tidak ditemukan di environment.");
@@ -241,7 +245,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       
       const prompt = `
         Anda adalah seorang Analis Intelijen Media Senior yang bekerja untuk Dinas Pariwisata dan Kebudayaan Provinsi Jawa Barat. 
-        Tugas Anda adalah menyusun "Laporan Analisis Strategis Media Intelligence" yang akan dipresentasikan kepada pimpinan tinggi (Kepala Dinas).
+        Tugas Anda adalah menyusun "Laporan Analisis Strategis Media Monitoring News Online" yang akan dipresentasikan kepada pimpinan tinggi (Kepala Dinas).
         
         Gunakan data pemberitaan berikut sebagai basis analisis utama:
         - Periode Laporan: ${startDate} s/d ${endDate}
@@ -257,7 +261,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         2. Hindari penggunaan kata-kata santai atau populer yang tidak perlu. Gunakan terminologi strategis seperti "signifikansi", "eskalasi narasi", "mitigasi reputasi", "akselerasi kunjungan", "stakeholder", "reputasi institusional".
         3. Struktur laporan harus mencakup:
            ### I. RINGKASAN EKSEKUTIF
-           Berikan gambaran umum performa media selama periode ini. Apakah trennya positif atau memerlukan perhatian khusus? Gunakan kalimat yang padat dan informatif.
+           Berikan gambaran umum performa media selama periode ini. Apakah trennya positif atau memerlukan perhatian khusus? Gunakan kalimat yang padat and informatif.
            
            ### II. ANALISIS SENTIMEN DAN REPUTASI DIGITAL
            Bedah makna di balik angka sentimen. Apa faktor pendorong sentimen positif? Jika ada sentimen negatif, apa akar permasalahannya secara naratif dan bagaimana dampaknya terhadap citra pariwisata?
@@ -285,15 +289,9 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         positif,
         netral,
         negatif,
-        sentimentData: [
-          { name: 'Positif', value: positif, color: '#10B981' },
-          { name: 'Netral', value: netral, color: '#F59E0B' },
-          { name: 'Negatif', value: negatif, color: '#EF4444' }
-        ],
         topDestinations,
         topMedia,
         allRegions,
-        topRegions: allRegions,
         mapData,
         aiContent,
         selectedColumns,
@@ -305,54 +303,63 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       
       // Move to a temporary state to allow hidden template to render
       setProgressText('Menyiapkan dokumen...');
+      updateToast(toastId, { message: '📄 Menyiapkan dokumen...', progress: 70 });
       
       // Wait for the hidden template to render its charts
       setTimeout(async () => {
         try {
           if (format === 'pdf') {
+            updateToast(toastId, { message: '📄 Membuat PDF...', progress: 90 });
             const pdf = await generatePDFDocument(newReportData);
             const blob = pdf.output('blob');
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
             setStep('review');
+            updateToast(toastId, { message: '✓ Laporan PDF siap ditinjau', type: 'success' });
           } else if (format === 'infographic') {
+            updateToast(toastId, { message: '🖼️ Membuat Infografis...', progress: 90 });
             await generateInfographic(newReportData);
+            updateToast(toastId, { message: '✓ Infografis berhasil diunduh', type: 'success' });
             onClose();
           } else if (format === 'docx') {
+            updateToast(toastId, { message: '📝 Membuat Word...', progress: 90 });
             await generateDocx(newReportData);
+            updateToast(toastId, { message: '✓ Dokumen Word berhasil diunduh', type: 'success' });
             onClose();
           } else if (format === 'pptx') {
+            updateToast(toastId, { message: '📊 Membuat PowerPoint...', progress: 90 });
             await generatePptx(newReportData);
+            updateToast(toastId, { message: '✓ Presentasi PPTX berhasil diunduh', type: 'success' });
             onClose();
           } else if (format === 'motion') {
             setStep('motion');
+            hideToast(toastId);
           }
           setIsGenerating(false);
         } catch (err: any) {
           console.error('Generation failed:', err);
-          alert('Gagal membuat laporan: ' + err.message);
+          updateToast(toastId, { message: '✗ Gagal membuat laporan: ' + err.message, type: 'error' });
           setIsGenerating(false);
         }
       }, 2000); // 2 seconds to ensure all charts and AI content are rendered
 
     } catch (error: any) {
       console.error('Error:', error);
-      alert(`Terjadi kesalahan saat memproses laporan: ${error?.message || String(error)}`);
+      updateToast(toastId, { message: `✗ Kesalahan: ${error?.message || String(error)}`, type: 'error' });
       setIsGenerating(false);
     }
   };
 
   const generateInfographic = async (data: any) => {
-    if (!infographicRef.current) throw new Error('Infographic template not found');
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for render
-    
-    // Use html2canvas or htmlToImage. We use htmlToImage here but with specific settings
-    // to avoid CORS issues (no external SVGs or Leaflet maps in the capture div)
-    const dataUrl = await htmlToImage.toPng(infographicRef.current, { 
+    if (!reportRef.current) throw new Error('Report template not found');
+    await new Promise(resolve => setTimeout(resolve, 3500));
+    const visualsElement = reportRef.current.querySelector('#report-visuals') as HTMLElement;
+    if (!visualsElement) throw new Error('Visuals section not found');
+
+    const dataUrl = await htmlToImage.toPng(visualsElement, { 
       pixelRatio: 2, // High resolution for infographic
       quality: 1,
-      backgroundColor: '#0f172a', // slate-900
-      skipFonts: true, // Sometimes helps with hanging
+      backgroundColor: '#ffffff',
     });
     
     const link = document.createElement('a');
@@ -363,7 +370,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
   const generateDocx = async (data: any) => {
     // Dynamic import to save bundle size
-    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType, AlignmentType, Header } = await import('docx');
+    const { Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell, BorderStyle, WidthType } = await import('docx');
     const { saveAs } = await import('file-saver');
 
     // Parse markdown to docx paragraphs
@@ -372,20 +379,12 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     // Title
     paragraphs.push(
       new Paragraph({
-        text: "LAPORAN ANALISIS STRATEGIS",
+        text: "Laporan Analisis Strategis Media Monitoring News Online",
         heading: HeadingLevel.HEADING_1,
-        alignment: AlignmentType.CENTER,
-        spacing: { after: 200 }
-      }),
-      new Paragraph({
-        text: "MEDIA INTELLIGENCE PARIWISATA JAWA BARAT",
-        heading: HeadingLevel.HEADING_2,
-        alignment: AlignmentType.CENTER,
         spacing: { after: 400 }
       }),
       new Paragraph({
         text: `Periode: ${data.startDate} s/d ${data.endDate}`,
-        alignment: AlignmentType.CENTER,
         spacing: { after: 400 }
       })
     );
@@ -433,29 +432,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     }
 
     const doc = new Document({
-      sections: [{ 
-        properties: {}, 
-        headers: {
-          default: new Header({
-            children: [
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "SMILING WEST JAVA - MEDIA INTELLIGENCE",
-                    bold: true,
-                    color: "1E3A8A",
-                  }),
-                ],
-                alignment: AlignmentType.RIGHT,
-                border: {
-                  bottom: { color: "1E3A8A", space: 1, value: "single", size: 6 },
-                },
-              }),
-            ],
-          }),
-        },
-        children: paragraphs 
-      }]
+      sections: [{ properties: {}, children: paragraphs }]
     });
 
     const blob = await Packer.toBlob(doc);
@@ -466,69 +443,46 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     const pptxgen = (await import('pptxgenjs')).default;
     const pres = new pptxgen();
 
-    // Define Master Slide
-    pres.defineSlideMaster({
-      title: "MASTER_SLIDE",
-      background: { color: "F8FAFC" },
-      objects: [
-        { rect: { x: 0, y: 0, w: "100%", h: 0.8, fill: { color: "1E3A8A" } } },
-        { text: { text: "SMILING WEST JAVA - MEDIA INTELLIGENCE", options: { x: 0.5, y: 0.2, w: 5, h: 0.4, color: "FFFFFF", fontSize: 14, bold: true } } },
-        { text: { text: `Periode: ${data.startDate} - ${data.endDate}`, options: { x: "70%", y: 0.2, w: 2.5, h: 0.4, color: "BFDBFE", fontSize: 12, align: "right" } } }
-      ]
-    });
-
     // Slide 1: Title
     const slide1 = pres.addSlide();
     slide1.background = { color: "1E3A8A" }; // blue-900
-    slide1.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: "100%", h: "100%", fill: { color: "0F172A", transparency: 50 } });
-    slide1.addText("LAPORAN ANALISIS STRATEGIS", { x: 1, y: 2, w: '80%', h: 1, fontSize: 36, color: "FFFFFF", bold: true });
-    slide1.addText("MEDIA INTELLIGENCE PARIWISATA JAWA BARAT", { x: 1, y: 3, w: '80%', h: 0.8, fontSize: 20, color: "38BDF8", bold: true });
-    slide1.addText(`Periode: ${data.startDate} s/d ${data.endDate}`, { x: 1, y: 4, w: '80%', h: 0.5, fontSize: 16, color: "94A3B8" });
+    slide1.addText("Laporan Analisis Strategis Media Monitoring News Online", { x: 1, y: 2, w: '80%', h: 1.5, fontSize: 36, color: "FFFFFF", bold: true });
+    slide1.addText(`Periode: ${data.startDate} s/d ${data.endDate}`, { x: 1, y: 3.5, w: '80%', h: 1, fontSize: 24, color: "BFDBFE" });
 
     // Slide 2: Stats
-    const slide2 = pres.addSlide({ masterName: "MASTER_SLIDE" });
-    slide2.addText("Ringkasan Statistik", { x: 0.5, y: 1.2, fontSize: 24, bold: true, color: "1E3A8A" });
-    
-    // Stat boxes
-    slide2.addShape(pres.ShapeType.roundRect, { x: 0.5, y: 2, w: 2, h: 1.5, fill: { color: "EFF6FF" }, line: { color: "BFDBFE", width: 1 } });
-    slide2.addText("Total Berita", { x: 0.5, y: 2.2, w: 2, h: 0.4, align: "center", fontSize: 12, color: "64748B", bold: true });
-    slide2.addText(`${data.total}`, { x: 0.5, y: 2.6, w: 2, h: 0.6, align: "center", fontSize: 28, color: "1E3A8A", bold: true });
-
-    slide2.addShape(pres.ShapeType.roundRect, { x: 2.8, y: 2, w: 2, h: 1.5, fill: { color: "ECFDF5" }, line: { color: "A7F3D0", width: 1 } });
-    slide2.addText("Positif", { x: 2.8, y: 2.2, w: 2, h: 0.4, align: "center", fontSize: 12, color: "64748B", bold: true });
-    slide2.addText(`${data.positif}`, { x: 2.8, y: 2.6, w: 2, h: 0.6, align: "center", fontSize: 28, color: "059669", bold: true });
-
-    slide2.addShape(pres.ShapeType.roundRect, { x: 5.1, y: 2, w: 2, h: 1.5, fill: { color: "FFFBEB" }, line: { color: "FDE68A", width: 1 } });
-    slide2.addText("Netral", { x: 5.1, y: 2.2, w: 2, h: 0.4, align: "center", fontSize: 12, color: "64748B", bold: true });
-    slide2.addText(`${data.netral}`, { x: 5.1, y: 2.6, w: 2, h: 0.6, align: "center", fontSize: 28, color: "D97706", bold: true });
-
-    slide2.addShape(pres.ShapeType.roundRect, { x: 7.4, y: 2, w: 2, h: 1.5, fill: { color: "FEF2F2" }, line: { color: "FECACA", width: 1 } });
-    slide2.addText("Negatif", { x: 7.4, y: 2.2, w: 2, h: 0.4, align: "center", fontSize: 12, color: "64748B", bold: true });
-    slide2.addText(`${data.negatif}`, { x: 7.4, y: 2.6, w: 2, h: 0.6, align: "center", fontSize: 28, color: "DC2626", bold: true });
+    const slide2 = pres.addSlide();
+    slide2.addText("Ringkasan Statistik", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: "1E3A8A" });
+    slide2.addText(`Total Berita: ${data.total}`, { x: 1, y: 1.5, fontSize: 18 });
+    slide2.addText(`Sentimen Positif: ${data.positif}`, { x: 1, y: 2.5, fontSize: 18, color: "10B981" });
+    slide2.addText(`Sentimen Netral: ${data.netral}`, { x: 1, y: 3.0, fontSize: 18, color: "F59E0B" });
+    slide2.addText(`Sentimen Negatif: ${data.negatif}`, { x: 1, y: 3.5, fontSize: 18, color: "EF4444" });
 
     // Slide 3: AI Analysis
-    const slide3 = pres.addSlide({ masterName: "MASTER_SLIDE" });
-    slide3.addText("Analisis Strategis AI", { x: 0.5, y: 1.2, fontSize: 24, bold: true, color: "1E3A8A" });
+    const slide3 = pres.addSlide();
+    slide3.addText("Analisis Strategis AI", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: "1E3A8A" });
     
     // Simple text extraction for PPTX
     let aiText = data.aiContent.replace(/### /g, '').replace(/## /g, '').replace(/# /g, '').replace(/\*\*/g, '');
-    slide3.addText(aiText.substring(0, 800) + (aiText.length > 800 ? "..." : ""), { x: 0.5, y: 1.8, w: '90%', h: 3.5, fontSize: 14, valign: "top", color: "334155" });
+    slide3.addText(aiText.substring(0, 800) + (aiText.length > 800 ? "..." : ""), { x: 0.5, y: 1.5, w: '90%', h: 3.5, fontSize: 14, valign: "top" });
 
     pres.writeFile({ fileName: `Presentasi_Media_${data.startDate}_${data.endDate}.pptx` });
   };
 
   const generatePDFDocument = async (data: any) => {
-    if (!pdfRef.current) throw new Error('PDF template not found');
+    if (!reportRef.current) throw new Error('Report template not found');
 
-    // Small delay to ensure charts are fully rendered in the hidden template
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    // Small delay to ensure map and charts are fully rendered in the hidden template
+    // Increased delay for map tiles to load
+    await new Promise(resolve => setTimeout(resolve, 3500));
 
-    // Capture the visual summary (Header, Stats, Charts) from pdfRef
-    const visualsImg = await htmlToImage.toJpeg(pdfRef.current, { 
-      pixelRatio: 2,
-      quality: 0.8,
+    // Capture the visual summary (Header, Stats, Charts, Map)
+    const visualsElement = reportRef.current.querySelector('#report-visuals') as HTMLElement;
+    if (!visualsElement) throw new Error('Visuals section not found');
+
+    const visualsImg = await htmlToImage.toJpeg(visualsElement, { 
+      pixelRatio: 1.2,
+      quality: 0.75,
       backgroundColor: '#ffffff',
-      skipFonts: true, // Prevent hanging on external fonts
     });
     
     const pdf = new jsPDF({
@@ -545,33 +499,24 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     
     // Page 1: Visual Summary
     const imgProps = pdf.getImageProperties(visualsImg);
-    const imgHeight = (imgProps.height * pdfWidth) / imgProps.width; // Scale to fit full width
+    const imgHeight = (imgProps.height * contentWidth) / imgProps.width;
     
-    pdf.addImage(visualsImg, 'JPEG', 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
+    pdf.addImage(visualsImg, 'JPEG', margin, margin, contentWidth, imgHeight, undefined, 'FAST');
     
     // Page 2: Strategic Analysis (Searchable Text / OCR)
     pdf.addPage();
-    
-    // Add Header to Page 2
-    pdf.setFillColor(30, 58, 138);
-    pdf.rect(0, 0, pdfWidth, 20, 'F');
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('SMILING WEST JAVA - MEDIA INTELLIGENCE', margin, 13);
-    
     pdf.setFontSize(22);
     pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(30, 58, 138); // blue-900
-    pdf.text('Analisis Strategis & Rekomendasi', margin, 35);
+    pdf.text('Analisis Strategis & Rekomendasi', margin, 25);
     
     pdf.setDrawColor(30, 58, 138);
     pdf.setLineWidth(1);
-    pdf.line(margin, 40, margin + 100, 40);
+    pdf.line(margin, 30, margin + 100, 30);
     
     // Process markdown for PDF text
     const lines = data.aiContent.split('\n');
-    let yPos = 50;
+    let yPos = 40;
     
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i].trim();
@@ -619,16 +564,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       for (let j = 0; j < splitText.length; j++) {
         if (yPos > pageHeight - 20) {
           pdf.addPage();
-          
-          // Add Header to new page
-          pdf.setFillColor(30, 58, 138);
-          pdf.rect(0, 0, pdfWidth, 20, 'F');
-          pdf.setTextColor(255, 255, 255);
-          pdf.setFontSize(12);
-          pdf.setFont('helvetica', 'bold');
-          pdf.text('SMILING WEST JAVA - MEDIA INTELLIGENCE', margin, 13);
-          
-          yPos = 30;
+          yPos = 20;
         }
         pdf.text(splitText[j], margin, yPos);
         yPos += 6;
@@ -711,15 +647,17 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
     
     setIsGenerating(true);
     setProgressText('Mengunduh PDF...');
+    const toastId = showToast('📄 Laporan PDF sedang diunduh...', 'loading');
     
     try {
       const pdf = await generatePDFDocument(reportData);
       pdf.save(`Laporan_Media_Intelijen_${reportData.startDate}_${reportData.endDate}.pdf`);
+      updateToast(toastId, { message: '✓ Laporan PDF berhasil diunduh', type: 'success' });
       setIsGenerating(false);
       onClose();
     } catch (err: any) {
       console.error('Error downloading PDF:', err);
-      alert(`Terjadi kesalahan saat mengunduh PDF: ${err?.message || String(err)}`);
+      updateToast(toastId, { message: `✗ Gagal mengunduh PDF: ${err?.message || String(err)}`, type: 'error' });
       setIsGenerating(false);
     }
   };
@@ -744,66 +682,66 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
   };
 
   const renderReportContent = () => (
-    <div className="bg-slate-50 p-0 text-gray-800 font-sans relative overflow-hidden" style={{ width: '1200px' }}>
-      <div id="report-visuals" className="bg-slate-50 relative">
-        {/* Decorative Background */}
-        <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-blue-900 to-slate-50 z-0"></div>
-        
-        <div className="relative z-10 p-12">
-          {/* Header */}
-          <div className="flex justify-between items-start mb-12 bg-white/10 backdrop-blur-md p-8 rounded-3xl border border-white/20 shadow-2xl">
-            <div className="flex items-center gap-6">
-              <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Smiling West Java" className="w-24 h-24 drop-shadow-lg" />
-              <div>
-                <h1 className="text-5xl font-black text-white tracking-tight mb-2 drop-shadow-md">MEDIA INTELLIGENCE</h1>
-                <h2 className="text-2xl font-bold text-blue-200 tracking-widest uppercase drop-shadow-md">Dinas Pariwisata & Kebudayaan Jawa Barat</h2>
-              </div>
-            </div>
-            <div className="text-right bg-white/20 backdrop-blur-md p-6 rounded-2xl border border-white/30 text-white">
-              <p className="text-sm font-bold uppercase tracking-[0.2em] mb-2 text-blue-100">Periode Laporan</p>
-              <p className="text-2xl font-black">{reportData.startDate} <span className="font-light mx-2 text-blue-300">|</span> {reportData.endDate}</p>
-            </div>
+    <div className="bg-white p-12 text-gray-800 font-sans" style={{ width: '1024px' }}>
+      <div id="report-visuals">
+        {/* Header */}
+        <div className="flex justify-between items-center border-b-8 border-blue-900 pb-8 mb-12">
+        <div className="flex items-center gap-6">
+          <div className="w-20 h-20 flex items-center justify-center">
+            <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
           </div>
-
-          {/* Executive Summary Stats */}
-          <div className="grid grid-cols-4 gap-6 mb-12">
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl border border-white/50 shadow-xl flex flex-col items-center text-center transform transition-transform hover:scale-105">
-              <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                <BarChart2 className="w-8 h-8 text-blue-600" />
-              </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Berita</p>
-              <p className="text-5xl font-black text-blue-900">{reportData.total}</p>
-            </div>
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl border border-white/50 shadow-xl flex flex-col items-center text-center transform transition-transform hover:scale-105">
-              <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                <PieChartIcon className="w-8 h-8 text-emerald-600" />
-              </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Positif</p>
-              <p className="text-5xl font-black text-emerald-600">{reportData.positif}</p>
-            </div>
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl border border-white/50 shadow-xl flex flex-col items-center text-center transform transition-transform hover:scale-105">
-              <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                <PieChartIcon className="w-8 h-8 text-amber-600" />
-              </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Netral</p>
-              <p className="text-5xl font-black text-amber-600">{reportData.netral}</p>
-            </div>
-            <div className="bg-white/90 backdrop-blur-sm p-8 rounded-3xl border border-white/50 shadow-xl flex flex-col items-center text-center transform transition-transform hover:scale-105">
-              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4 shadow-inner">
-                <PieChartIcon className="w-8 h-8 text-red-600" />
-              </div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Negatif</p>
-              <p className="text-5xl font-black text-red-600">{reportData.negatif}</p>
-            </div>
+          <div>
+            <h1 className="text-5xl font-black text-blue-900 tracking-tighter mb-1 uppercase">Media Monitoring News Online</h1>
+            <h2 className="text-2xl font-bold text-blue-700/70 uppercase tracking-widest">Dinas Pariwisata Jawa Barat</h2>
           </div>
+        </div>
+        <div className="text-right bg-gray-50 p-6 rounded-2xl border border-gray-100">
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-[0.2em] mb-2">Periode Laporan</p>
+          <p className="text-xl font-black text-gray-900">
+            {reportData.startDate} <span className="text-gray-300 font-light mx-2">|</span> {reportData.endDate}
+          </p>
+        </div>
+      </div>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-2 gap-10 mb-12">
-            {/* Sentiment Chart */}
-            <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl">
-              <h3 className="text-xl font-black text-gray-900 mb-8 text-center uppercase tracking-widest border-b-2 border-gray-50 pb-6">Distribusi Sentimen</h3>
-              <div className="h-[320px] w-full flex items-center justify-center relative">
-                <PieChart width={400} height={320}>
+      {/* Executive Summary Stats */}
+      <div className="grid grid-cols-4 gap-6 mb-12">
+        <div className="bg-white p-8 rounded-3xl border-2 border-blue-50 shadow-sm flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center mb-4">
+            <BarChart2 className="w-8 h-8 text-blue-600" />
+          </div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Total Berita</p>
+          <p className="text-4xl font-black text-blue-900">{reportData.total}</p>
+        </div>
+        <div className="bg-white p-8 rounded-3xl border-2 border-emerald-50 shadow-sm flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-4">
+            <PieChartIcon className="w-8 h-8 text-emerald-600" />
+          </div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Positif</p>
+          <p className="text-4xl font-black text-emerald-600">{reportData.positif}</p>
+        </div>
+        <div className="bg-white p-8 rounded-3xl border-2 border-amber-50 shadow-sm flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mb-4">
+            <PieChartIcon className="w-8 h-8 text-amber-600" />
+          </div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Netral</p>
+          <p className="text-4xl font-black text-amber-600">{reportData.netral}</p>
+        </div>
+        <div className="bg-white p-8 rounded-3xl border-2 border-red-50 shadow-sm flex flex-col items-center text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
+            <PieChartIcon className="w-8 h-8 text-red-600" />
+          </div>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Negatif</p>
+          <p className="text-4xl font-black text-red-600">{reportData.negatif}</p>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-2 gap-10 mb-12">
+        {/* Sentiment Chart */}
+        <div className="bg-white rounded-3xl p-8 border-2 border-gray-50 shadow-sm">
+          <h3 className="text-xl font-black text-gray-900 mb-8 text-center uppercase tracking-widest border-b-2 border-gray-50 pb-6">Distribusi Sentimen</h3>
+          <div className="h-[320px] w-full flex items-center justify-center relative">
+            <PieChart width={400} height={320}>
               <Pie
                 data={[
                   { name: 'Positif', value: reportData.positif, color: COLORS.positive },
@@ -832,7 +770,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
         </div>
 
         {/* Top Destinations Bar Chart */}
-        <div className="bg-white rounded-3xl p-8 border border-gray-100 shadow-xl">
+        <div className="bg-white rounded-3xl p-8 border-2 border-gray-50 shadow-sm">
           <h3 className="text-xl font-black text-gray-900 mb-8 text-center uppercase tracking-widest border-b-2 border-gray-50 pb-6">Top 5 Destinasi</h3>
           <div className="h-[320px] w-full flex items-center justify-center">
             <BarChart width={400} height={320} data={reportData.topDestinations} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -852,7 +790,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
                 barSize={32}
                 isAnimationActive={!isGenerating}
               >
-                {(reportData.topDestinations || []).map((entry: any, index: number) => (
+                {reportData.topDestinations.map((entry: any, index: number) => (
                   <Cell key={`cell-${index}`} fill={index === 0 ? '#1E3A8A' : '#3B82F6'} />
                 ))}
               </Bar>
@@ -862,7 +800,7 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
       </div>
 
       {/* Heatmap Sebaran Wilayah */}
-      <div className="bg-white rounded-3xl p-10 border border-gray-100 shadow-xl mb-12">
+      <div className="bg-white rounded-3xl p-10 border-2 border-gray-50 shadow-sm mb-12">
         <div className="flex items-center gap-4 mb-8 border-b-2 border-gray-50 pb-6">
           <div className="bg-blue-100 p-3 rounded-xl">
             <Activity className="w-6 h-6 text-blue-600" />
@@ -886,8 +824,8 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
               <TileLayer
                 url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               />
-              {(reportData.mapData || []).map((loc: any, idx: number) => {
-                const maxCount = Math.max(...(reportData.mapData || []).map((d: any) => d.count), 1);
+              {reportData.mapData && reportData.mapData.map((loc: any, idx: number) => {
+                const maxCount = Math.max(...reportData.mapData.map((d: any) => d.count), 1);
                 const intensity = loc.count / maxCount;
                 const radius = 10 + (intensity * 25);
                 
@@ -922,8 +860,8 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
 
           <div className="flex flex-col gap-3">
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Daftar Wilayah Teratas</h4>
-            {(reportData.allRegions || []).slice(0, 10).map((region: any, idx: number) => {
-              const maxCount = reportData.allRegions && reportData.allRegions.length > 0 ? reportData.allRegions[0].count : 1;
+            {reportData.allRegions.slice(0, 10).map((region: any, idx: number) => {
+              const maxCount = reportData.allRegions[0].count;
               const percentage = (region.count / maxCount) * 100;
               return (
                 <div key={idx} className="flex flex-col gap-1">
@@ -970,13 +908,6 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
             <Markdown>{reportData.aiContent}</Markdown>
           </div>
         </div>
-      </div>
-
-      {/* Footer */}
-      <div className="mt-12 border-t-2 border-gray-100 pt-8 flex justify-between items-center text-gray-400 text-xs font-bold uppercase tracking-widest">
-        <p>Dihasilkan oleh Sistem Media Intelligence</p>
-        <p>{new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-      </div>
       </div>
     </div>
   );
@@ -1275,321 +1206,117 @@ export default function ReportGenerator({ isOpen, onClose, data, parseDate }: Re
             </div>
           </>
         ) : step === 'motion' && reportData ? (
-          <div className="flex-1 bg-black/95 relative overflow-hidden flex flex-col items-center justify-center p-4">
-            
-            {/* Mobile Frame Container */}
-            <div className="w-full max-w-[400px] aspect-[9/16] bg-slate-950 relative overflow-hidden flex flex-col rounded-[40px] shadow-[0_0_50px_rgba(0,0,0,0.5)] border-[8px] border-gray-900">
-              
-              {/* Decorative Background */}
-              <div className="absolute top-[-20%] left-[-10%] w-[80%] h-[50%] bg-blue-600/30 blur-[80px] rounded-full pointer-events-none"></div>
-              <div className="absolute bottom-[-20%] right-[-10%] w-[80%] h-[50%] bg-emerald-600/20 blur-[80px] rounded-full pointer-events-none"></div>
-              
-              {/* Logo Header */}
-              <div className="absolute top-6 left-6 z-50 flex items-center gap-3">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Activity className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-white font-bold text-[10px] tracking-widest leading-tight">SMILING WEST JAVA</span>
-                  <span className="text-blue-400 text-[9px] leading-tight">Media Intelligence</span>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 hide-scrollbar relative z-10 snap-y snap-mandatory">
-                
+          <div className="flex-1 bg-black relative overflow-hidden flex flex-col">
+            <div className="flex-1 overflow-y-auto p-8 hide-scrollbar">
+              <div className="max-w-3xl mx-auto space-y-24 pb-32">
                 {/* Intro Slide */}
                 <motion.div 
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: false, amount: 0.5 }}
-                  transition={{ duration: 0.5 }}
-                  className="h-full flex flex-col justify-center items-center text-center space-y-6 snap-center"
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, margin: "-100px" }}
+                  transition={{ duration: 0.8 }}
+                  className="min-h-[60vh] flex flex-col justify-center items-center text-center space-y-6"
                 >
                   <motion.div 
                     initial={{ scale: 0 }}
                     whileInView={{ scale: 1 }}
-                    transition={{ delay: 0.2, type: "spring" }}
-                    className="w-24 h-24 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.5)]"
+                    transition={{ delay: 0.3, type: "spring" }}
+                    className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center shadow-[0_0_50px_rgba(37,99,235,0.5)]"
                   >
-                    <Activity className="w-12 h-12 text-white" />
+                    <Activity className="w-10 h-10 text-white" />
                   </motion.div>
-                  <h1 className="text-4xl font-black text-white tracking-tight leading-tight">
-                    Laporan <br/> Analisis <br/>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Strategis</span>
+                  <h1 className="text-5xl font-black text-white tracking-tight leading-tight">
+                    Laporan Analisis Strategis <br/>
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">Media Monitoring News Online</span>
                   </h1>
-                  <div className="bg-gray-900/80 px-4 py-2 rounded-full border border-gray-800">
-                    <p className="text-sm text-gray-300 font-medium">{reportData.startDate} - {reportData.endDate}</p>
-                  </div>
-                  
-                  <div className="absolute bottom-10 animate-bounce">
-                    <p className="text-gray-500 text-xs mb-2">Scroll ke bawah</p>
-                    <div className="w-6 h-10 border-2 border-gray-600 rounded-full flex justify-center p-1 mx-auto">
-                      <div className="w-1 h-2 bg-gray-400 rounded-full"></div>
-                    </div>
-                  </div>
+                  <p className="text-xl text-gray-400 font-medium">Periode: {reportData.startDate} s/d {reportData.endDate}</p>
                 </motion.div>
 
                 {/* Stats Slide */}
                 <motion.div 
-                  initial={{ opacity: 0, y: 50 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: false, amount: 0.5 }}
-                  transition={{ duration: 0.5 }}
-                  className="h-full flex flex-col justify-center space-y-6 snap-center pt-12"
+                  initial={{ opacity: 0, x: -50 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: false, margin: "-100px" }}
+                  transition={{ duration: 0.8 }}
+                  className="min-h-[60vh] flex flex-col justify-center space-y-12"
                 >
-                  <h2 className="text-2xl font-bold text-white text-center mb-4">Ringkasan Statistik</h2>
-                  
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-blue-900/40 border border-blue-800/50 p-6 rounded-3xl text-center backdrop-blur-sm"
-                  >
-                    <p className="text-blue-300 font-medium mb-1 uppercase tracking-widest text-xs">Total Berita</p>
-                    <p className="text-6xl font-black text-white">{reportData.total}</p>
-                  </motion.div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                  <h2 className="text-3xl font-bold text-white text-center">Ringkasan Statistik</h2>
+                  <div className="grid grid-cols-2 gap-6">
                     <motion.div 
                       whileHover={{ scale: 1.05 }}
-                      className="bg-emerald-900/30 border border-emerald-800/50 p-4 rounded-2xl text-center backdrop-blur-sm"
+                      className="bg-gray-900/50 border border-gray-800 p-8 rounded-3xl text-center"
                     >
-                      <p className="text-emerald-400 text-xs font-bold uppercase mb-1">Positif</p>
-                      <p className="text-3xl font-black text-white">{reportData.positif}</p>
+                      <p className="text-gray-400 font-medium mb-2 uppercase tracking-widest text-sm">Total Berita</p>
+                      <p className="text-6xl font-black text-white">{reportData.total}</p>
                     </motion.div>
                     <motion.div 
                       whileHover={{ scale: 1.05 }}
-                      className="bg-red-900/30 border border-red-800/50 p-4 rounded-2xl text-center backdrop-blur-sm"
+                      className="bg-gray-900/50 border border-gray-800 p-8 rounded-3xl flex flex-col justify-center gap-4"
                     >
-                      <p className="text-red-400 text-xs font-bold uppercase mb-1">Negatif</p>
-                      <p className="text-3xl font-black text-white">{reportData.negatif}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-emerald-400 font-bold">Positif</span>
+                        <span className="text-2xl font-black text-white">{reportData.positif}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-amber-400 font-bold">Netral</span>
+                        <span className="text-2xl font-black text-white">{reportData.netral}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-red-400 font-bold">Negatif</span>
+                        <span className="text-2xl font-black text-white">{reportData.negatif}</span>
+                      </div>
                     </motion.div>
                   </div>
-                  
-                  <motion.div 
-                    whileHover={{ scale: 1.02 }}
-                    className="bg-amber-900/30 border border-amber-800/50 p-4 rounded-2xl text-center backdrop-blur-sm mx-8"
-                  >
-                    <p className="text-amber-400 text-xs font-bold uppercase mb-1">Netral</p>
-                    <p className="text-2xl font-black text-white">{reportData.netral}</p>
-                  </motion.div>
                 </motion.div>
 
                 {/* AI Analysis Slide */}
                 <motion.div 
-                  initial={{ opacity: 0, x: 50 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: false, amount: 0.2 }}
-                  transition={{ duration: 0.5 }}
-                  className="min-h-full flex flex-col justify-center space-y-6 snap-start pt-20 pb-10"
+                  initial={{ opacity: 0, y: 50 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: false, margin: "-100px" }}
+                  transition={{ duration: 0.8 }}
+                  className="min-h-[60vh] flex flex-col justify-center space-y-8"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="bg-blue-900/50 p-2 rounded-lg">
-                      <Activity className="w-6 h-6 text-blue-400" />
+                  <div className="flex items-center gap-4">
+                    <div className="bg-blue-900/50 p-3 rounded-xl">
+                      <Activity className="w-8 h-8 text-blue-400" />
                     </div>
-                    <h2 className="text-xl font-bold text-white">Analisis AI</h2>
+                    <h2 className="text-3xl font-bold text-white">Analisis Strategis AI</h2>
                   </div>
-                  <div className="bg-gray-900/60 border border-gray-800 p-6 rounded-3xl backdrop-blur-sm prose prose-invert prose-sm max-w-none prose-p:text-gray-300 prose-headings:text-white prose-li:text-gray-300">
+                  <div className="bg-gray-900/50 border border-gray-800 p-8 rounded-3xl prose prose-invert prose-lg max-w-none prose-p:text-gray-300 prose-headings:text-white prose-li:text-gray-300">
                     <Markdown>{reportData.aiContent}</Markdown>
                   </div>
                 </motion.div>
               </div>
-              
-              {/* Fixed Bottom Bar inside mobile frame */}
-              <div className="p-4 border-t border-gray-800 bg-slate-950/90 backdrop-blur-md flex justify-between items-center shrink-0 relative z-10">
-                <button 
-                  onClick={() => setStep('form')}
-                  className="text-gray-400 hover:text-white font-medium text-xs transition-colors px-3 py-1.5 bg-gray-900 rounded-full"
-                >
-                  Tutup
-                </button>
-                <p className="text-gray-500 text-[10px]">Geser untuk melihat</p>
-              </div>
+            </div>
+            
+            {/* Fixed Bottom Bar */}
+            <div className="p-5 border-t border-gray-800 bg-black flex justify-between items-center shrink-0">
+              <button 
+                onClick={() => setStep('form')}
+                className="text-gray-400 hover:text-white font-medium text-sm transition-colors px-4 py-2"
+              >
+                Kembali
+              </button>
+              <p className="text-gray-500 text-xs">Scroll untuk melihat presentasi</p>
             </div>
           </div>
         ) : null}
       </div>
 
-      {/* Hidden Report Templates for Generation */}
+      {/* Hidden Report Template for PDF Generation */}
       {reportData && (
-        <div style={{ position: 'fixed', left: '-9999px', top: '0', zIndex: -100 }}>
-          
-          {/* 1. PDF A4 Portrait Template (794px width) */}
-          <div ref={pdfRef} className="bg-white" style={{ width: '794px', minHeight: '1123px', padding: '40px' }}>
-            <div className="flex items-center gap-4 mb-8 border-b-4 border-blue-900 pb-4">
-              <div className="w-16 h-16 bg-blue-900 rounded-xl flex items-center justify-center">
-                <Activity className="w-10 h-10 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-black text-blue-900 uppercase tracking-tight">Laporan Eksekutif</h1>
-                <p className="text-blue-600 font-bold tracking-widest">SMILING WEST JAVA - MEDIA INTELLIGENCE</p>
-                <p className="text-gray-500 text-sm mt-1">Periode: {reportData.startDate} s/d {reportData.endDate}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-4 gap-4 mb-8">
-              <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-xl">
-                <p className="text-gray-500 text-xs font-bold uppercase">Total Berita</p>
-                <p className="text-3xl font-black text-blue-900">{reportData.total}</p>
-              </div>
-              <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl">
-                <p className="text-gray-500 text-xs font-bold uppercase">Positif</p>
-                <p className="text-3xl font-black text-emerald-600">{reportData.positif}</p>
-              </div>
-              <div className="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r-xl">
-                <p className="text-gray-500 text-xs font-bold uppercase">Netral</p>
-                <p className="text-3xl font-black text-amber-600">{reportData.netral}</p>
-              </div>
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl">
-                <p className="text-gray-500 text-xs font-bold uppercase">Negatif</p>
-                <p className="text-3xl font-black text-red-600">{reportData.negatif}</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              <div className="border border-gray-200 rounded-2xl p-4 bg-white">
-                <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase text-center">Analisis Sentimen</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie data={reportData.sentimentData || []} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                        {(reportData.sentimentData || []).map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip />
-                      <Legend verticalAlign="bottom" height={36} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="border border-gray-200 rounded-2xl p-4 bg-white">
-                <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase text-center">Top 5 Destinasi</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={(reportData.topDestinations || []).slice(0, 5)} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                      <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} width={80} />
-                      <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                      <Bar dataKey="count" fill="#3b82f6" radius={[0, 4, 4, 0]} barSize={20}>
-                        <LabelList dataKey="count" position="right" fill="#64748b" fontSize={10} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
-            
-            <div className="border border-gray-200 rounded-2xl p-4 bg-white">
-              <h3 className="text-sm font-bold text-gray-800 mb-4 uppercase">Daftar Wilayah Teratas</h3>
-              <div className="grid grid-cols-2 gap-4">
-                {(reportData.topRegions || []).slice(0, 10).map((region: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center border-b border-gray-100 pb-2">
-                    <span className="text-sm font-medium text-gray-700">{region.name}</span>
-                    <span className="text-sm font-bold text-blue-600">{region.count} Berita</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Infographic Template (9:16 Vertical - 1080x1920) */}
-          <div ref={infographicRef} className="bg-slate-950 relative overflow-hidden flex flex-col" style={{ width: '1080px', height: '1920px', padding: '80px' }}>
-            <div className="absolute top-[-10%] left-[-20%] w-[60%] h-[40%] bg-blue-600/30 blur-[150px] rounded-full"></div>
-            <div className="absolute bottom-[-10%] right-[-20%] w-[60%] h-[40%] bg-emerald-600/20 blur-[150px] rounded-full"></div>
-            
-            <div className="relative z-10 flex flex-col h-full">
-              {/* Header */}
-              <div className="flex items-center justify-between mb-16 border-b border-gray-800 pb-8">
-                <div className="flex items-center gap-6">
-                  <div className="w-24 h-24 bg-blue-600 rounded-3xl flex items-center justify-center shadow-[0_0_40px_rgba(37,99,235,0.4)]">
-                    <Activity className="w-14 h-14 text-white" />
-                  </div>
-                  <div>
-                    <h1 className="text-5xl font-black text-white tracking-tight">MEDIA INTELLIGENCE</h1>
-                    <p className="text-2xl text-blue-400 font-bold tracking-widest mt-2">SMILING WEST JAVA</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-gray-400 text-xl font-medium uppercase tracking-widest">Periode Laporan</p>
-                  <p className="text-3xl font-bold text-white mt-2">{reportData.startDate} - {reportData.endDate}</p>
-                </div>
-              </div>
-
-              {/* Big Stats */}
-              <div className="bg-gray-900/60 border border-gray-800 rounded-[40px] p-12 mb-12 backdrop-blur-sm">
-                <p className="text-center text-gray-400 text-2xl font-bold uppercase tracking-widest mb-6">Total Publikasi Berita</p>
-                <p className="text-center text-[120px] font-black text-white leading-none mb-12">{reportData.total}</p>
-                
-                <div className="grid grid-cols-3 gap-8">
-                  <div className="bg-emerald-900/30 border border-emerald-800/50 rounded-3xl p-8 text-center">
-                    <p className="text-emerald-400 text-xl font-bold uppercase mb-2">Positif</p>
-                    <p className="text-6xl font-black text-white">{reportData.positif}</p>
-                  </div>
-                  <div className="bg-amber-900/30 border border-amber-800/50 rounded-3xl p-8 text-center">
-                    <p className="text-amber-400 text-xl font-bold uppercase mb-2">Netral</p>
-                    <p className="text-6xl font-black text-white">{reportData.netral}</p>
-                  </div>
-                  <div className="bg-red-900/30 border border-red-800/50 rounded-3xl p-8 text-center">
-                    <p className="text-red-400 text-xl font-bold uppercase mb-2">Negatif</p>
-                    <p className="text-6xl font-black text-white">{reportData.negatif}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Charts Row */}
-              <div className="grid grid-cols-2 gap-12 mb-12 flex-1">
-                <div className="bg-gray-900/60 border border-gray-800 rounded-[40px] p-10 backdrop-blur-sm flex flex-col">
-                  <h3 className="text-2xl font-bold text-white mb-8 text-center">Sentimen Publik</h3>
-                  <div className="flex-1 min-h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={reportData.sentimentData || []} cx="50%" cy="50%" innerRadius={100} outerRadius={160} paddingAngle={5} dataKey="value">
-                          {(reportData.sentimentData || []).map((entry: any, index: number) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Legend verticalAlign="bottom" height={60} iconSize={24} wrapperStyle={{ fontSize: '20px', color: 'white' }} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-                
-                <div className="bg-gray-900/60 border border-gray-800 rounded-[40px] p-10 backdrop-blur-sm flex flex-col">
-                  <h3 className="text-2xl font-bold text-white mb-8 text-center">Top 5 Destinasi</h3>
-                  <div className="flex-1 min-h-[400px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={(reportData.topDestinations || []).slice(0, 5)} layout="vertical" margin={{ top: 0, right: 50, left: 60, bottom: 0 }}>
-                        <XAxis type="number" hide />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fill: '#cbd5e1', fontSize: 18 }} width={120} />
-                        <Bar dataKey="count" fill="#3b82f6" radius={[0, 8, 8, 0]} barSize={40}>
-                          <LabelList dataKey="count" position="right" fill="#ffffff" fontSize={20} fontWeight="bold" />
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Summary Snippet */}
-              <div className="bg-blue-900/40 border border-blue-800/50 rounded-[40px] p-10 backdrop-blur-sm">
-                <div className="flex items-center gap-4 mb-6">
-                  <Activity className="w-8 h-8 text-blue-400" />
-                  <h3 className="text-2xl font-bold text-white">Insight Strategis</h3>
-                </div>
-                <p className="text-blue-100 text-2xl leading-relaxed line-clamp-4">
-                  {reportData.aiContent.replace(/#/g, '').replace(/\*/g, '').split('\n').filter((l: string) => l.trim().length > 20)[0] || "Analisis sentimen menunjukkan tren positif pada pariwisata Jawa Barat."}
-                </p>
-              </div>
-
-              {/* Footer */}
-              <div className="mt-auto pt-8 flex justify-between items-center border-t border-gray-800">
-                <p className="text-gray-500 text-xl font-bold tracking-widest">@smilingwestjava</p>
-                <p className="text-gray-500 text-xl font-bold">disparbud.jabarprov.go.id</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Keep the original report template for the web UI preview if needed, or we can just use the new ones */}
-          <div ref={reportRef} className="bg-white" style={{ width: '1200px' }}>
+        <div 
+          className="fixed" 
+          style={{ 
+            left: '-9999px',
+            top: '0',
+            width: '1024px',
+            backgroundColor: 'white',
+            zIndex: -100
+          }}
+        >
+          <div ref={reportRef}>
             {renderReportContent()}
           </div>
         </div>

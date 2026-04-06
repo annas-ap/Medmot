@@ -10,80 +10,59 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, LineChart, Line,
   PieChart, Pie, Cell, AreaChart, Area
 } from 'recharts';
-import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown, Moon, Sun, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
+import { Activity, Search, LayoutDashboard, Radio, TrendingUp, TrendingDown, Minus, FileText, Smile, Frown, Meh, Globe, Flame, BarChart2, Calendar, X, ExternalLink, MapPin, Map as MapIcon, FileDown, Moon, Sun, ArrowUp, ArrowDown, ArrowUpDown, Sparkles, Settings, Menu } from 'lucide-react';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import NewsDetailPage from './components/NewsDetailPage';
 import ReportGenerator from './components/ReportGenerator';
 import NewsPortal from './components/NewsPortal';
+import Sidebar, { ViewType } from './components/Sidebar';
+import { useFilters } from './contexts/FilterContext';
 
 const DashboardSkeleton = () => (
-  <div className="space-y-6">
-    <div className="h-16 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse mb-8"></div>
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+  <div className="space-y-6 animate-pulse">
+    {/* Filter Bar Skeleton */}
+    <div className="h-20 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
+    
+    {/* Metric Cards Skeleton */}
+    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
       {[...Array(5)].map((_, i) => (
-        <div key={i} className="h-32 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
+        <div key={i} className="h-32 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
       ))}
     </div>
-    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      <div className="lg:col-span-3 space-y-6">
-        <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-        <div className="h-96 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-      </div>
-      <div className="space-y-6">
-        <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-        <div className="h-64 bg-gray-200 dark:bg-gray-800 rounded-xl animate-pulse"></div>
-      </div>
+
+    {/* Charts Row Skeleton */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 h-[300px] bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
+      <div className="h-[300px] bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
+    </div>
+
+    {/* Map & Table Row Skeleton */}
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 h-[400px] bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
+      <div className="h-[400px] bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700"></div>
     </div>
   </div>
 );
 
 const NewsPortalSkeleton = () => (
-  <div className="max-w-[1600px] mx-auto space-y-8">
-    {/* Header & Filters Skeleton */}
-    <div className="bg-white/90 dark:bg-gray-800/90 p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-      <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <div className="w-16 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="w-20 h-9 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-          ))}
-        </div>
-        <div className="w-full md:w-96 h-11 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
-      </div>
-    </div>
+  <div className="max-w-[1600px] mx-auto space-y-8 animate-pulse">
+    {/* Filters Skeleton */}
+    <div className="h-20 bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700"></div>
 
     {/* Hero Section Skeleton */}
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {[...Array(2)].map((_, i) => (
-        <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 h-[400px] flex flex-col">
-          <div className="h-3/5 w-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
-          <div className="p-6 flex-1 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="w-full h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="w-4/5 h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-            <div className="w-1/4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-          </div>
-        </div>
-      ))}
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="lg:col-span-8 h-[400px] md:h-[500px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700"></div>
+      <div className="lg:col-span-4 flex flex-col gap-6">
+        <div className="flex-1 h-[190px] md:h-[240px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700"></div>
+        <div className="flex-1 h-[190px] md:h-[240px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700"></div>
+      </div>
     </div>
 
     {/* Grid Section Skeleton */}
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       {[...Array(6)].map((_, i) => (
-        <div key={i} className="bg-white dark:bg-gray-800 rounded-2xl overflow-hidden shadow-sm border border-gray-100 dark:border-gray-700 h-[380px] flex flex-col">
-          <div className="h-48 w-full bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
-          <div className="p-5 flex-1 flex flex-col justify-between">
-            <div className="space-y-3">
-              <div className="w-1/3 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="w-full h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-              <div className="w-4/5 h-5 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-            </div>
-            <div className="w-1/4 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse"></div>
-          </div>
-        </div>
+        <div key={i} className="h-[380px] bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700"></div>
       ))}
     </div>
   </div>
@@ -159,17 +138,49 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('Semua');
-  const [timeFilter, setTimeFilter] = useState('7 Hari');
-  const [regionFilter, setRegionFilter] = useState('Semua');
+  
+  const { 
+    timeFilter, setTimeFilter, 
+    regionFilter, setRegionFilter, 
+    sentimentFilter, setSentimentFilter, 
+    searchQuery, setSearchQuery,
+    resetFilters 
+  } = useFilters();
+
   const [mapCenter, setMapCenter] = useState<[number, number]>([-6.9147, 107.6098]);
   const [mapZoom, setMapZoom] = useState(8);
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedNews, setSelectedNews] = useState<any | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'dashboard' | 'news'>('dashboard');
+  const [activeView, setActiveView] = useState<ViewType>(() => {
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('view') as ViewType) || 'dashboard';
+  });
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSearchQuery(localSearchQuery);
+    }, 300); 
+    return () => clearTimeout(timer);
+  }, [localSearchQuery, setSearchQuery]);
+
+  // Sync local search with global search (e.g. if reset)
+  useEffect(() => {
+    setLocalSearchQuery(searchQuery);
+  }, [searchQuery]);
+
+  // Sync view to URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (activeView !== 'dashboard') params.set('view', activeView);
+    else params.delete('view');
+    
+    const newRelativePathQuery = window.location.pathname + (params.toString() ? '?' + params.toString() : '');
+    window.history.replaceState(null, '', newRelativePathQuery);
+  }, [activeView]);
 
   // Responsive sidebar
   useEffect(() => {
@@ -188,19 +199,6 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleNavClick = (view: 'dashboard' | 'news') => {
-    setActiveView(view);
-    if (window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
-    }
-  };
-
-  const handleReportClick = () => {
-    setIsReportModalOpen(true);
-    if (window.innerWidth < 1024) {
-      setIsSidebarOpen(false);
-    }
-  };
   const lastCsvTextRef = useRef<string>('');
 
   // Apply dark mode class to html element
@@ -215,7 +213,7 @@ export default function App() {
   // Fetch data
   const fetchData = async (isInitial = false) => {
     try {
-      if (isInitial) setLoading(true);
+      setLoading(true);
       // Add cache-busting parameter to ensure we get the latest data from Google Sheets
       const response = await fetch(`${CSV_URL}&_t=${new Date().getTime()}`);
       if (!response.ok) throw new Error('Failed to fetch data');
@@ -280,6 +278,26 @@ export default function App() {
   const displayData = useMemo(() => {
     let result = [...filteredDataByRegion];
     
+    // Apply Sentiment Filter
+    if (sentimentFilter !== 'Semua') {
+      result = result.filter(row => {
+        const val = String(row['SENTIMEN'] || '').toLowerCase().trim();
+        return val === sentimentFilter.toLowerCase();
+      });
+    }
+
+    // Apply Search Query Filter
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(row => {
+        const judul = String(row['JUDUL'] || '').toLowerCase();
+        const media = String(row['NAMA MEDIA'] || '').toLowerCase();
+        const kabKota = String(row['KAB/KOTA'] || '').toLowerCase();
+        const isiBerita = String(row['ISI BERITA'] || '').toLowerCase();
+        return judul.includes(query) || media.includes(query) || kabKota.includes(query) || isiBerita.includes(query);
+      });
+    }
+
     // Sort by date descending
     result.sort((a, b) => {
       const dateA = parseIndonesianDate(a['TANGGAL'] || '');
@@ -503,23 +521,8 @@ export default function App() {
   }, [displayData]);
 
   const filteredNews = useMemo(() => {
-    let filtered = recentNews;
-    
-    if (activeTab !== 'Semua') {
-      filtered = filtered.filter(n => n.sentimen === activeTab);
-    }
-    
-    if (searchQuery.trim() !== '') {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(n => 
-        n.judul.toLowerCase().includes(query) || 
-        n.media.toLowerCase().includes(query) ||
-        n.destinasi.toLowerCase().includes(query)
-      );
-    }
-    
-    return filtered;
-  }, [recentNews, activeTab, searchQuery]);
+    return recentNews;
+  }, [recentNews]);
 
   // Pagination and Sorting state for Berita Terkini table
   const [currentPage, setCurrentPage] = useState(1);
@@ -529,7 +532,7 @@ export default function App() {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [regionFilter, timeFilter, searchQuery, activeTab]);
+  }, [regionFilter, timeFilter, searchQuery, sentimentFilter]);
 
   // Handle sorting
   const handleSort = (key: string) => {
@@ -703,181 +706,66 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen bg-[#F3F4F6] dark:bg-gray-900 text-gray-800 dark:text-gray-100 font-sans overflow-hidden transition-colors duration-300">
-      
-      {/* Sidebar */}
-      <aside 
-        className={`hidden md:flex bg-white dark:bg-gray-950 border-r border-gray-200 dark:border-gray-800 flex-col transition-all duration-300 z-20 ${
-          isSidebarOpen ? 'w-64' : 'w-20'
-        }`}
-      >
-        {/* Sidebar Header */}
-        <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
-          <div className={`flex items-center gap-3 overflow-hidden ${!isSidebarOpen && 'justify-center w-full'}`}>
-            <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8 shrink-0" />
-            {isSidebarOpen && (
-              <div className="flex flex-col whitespace-nowrap">
-                <span className="font-bold text-sm text-blue-900 dark:text-blue-100">Media Intelligence</span>
-                <span className="text-[10px] text-gray-500 dark:text-gray-400">Pariwisata Jabar</span>
-              </div>
-            )}
-          </div>
-          {isSidebarOpen && (
+    <div className={`min-h-screen flex transition-colors duration-300 ${isDarkMode ? 'dark bg-gray-950' : 'bg-gray-50'}`}>
+      <Sidebar 
+        activeView={activeView} 
+        onViewChange={setActiveView} 
+        isOpen={isSidebarOpen} 
+        setIsOpen={setIsSidebarOpen}
+        onOpenExport={() => setIsReportModalOpen(true)}
+      />
+
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarOpen ? 'lg:ml-[260px]' : 'lg:ml-[80px]'}`}>
+        {/* Top Navigation / Header */}
+        <header className="h-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 transition-colors duration-300">
+          <div className="flex items-center gap-4">
             <button 
-              onClick={() => setIsSidebarOpen(false)}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg lg:hidden"
             >
-              <X className="w-4 h-4" />
+              <Menu className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
-          )}
-        </div>
-
-        {/* Sidebar Navigation */}
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
-          {!isSidebarOpen && (
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="w-full flex justify-center p-2 mb-4 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            >
-              <LayoutDashboard className="w-5 h-5" />
-            </button>
-          )}
-          
-          <button
-            onClick={() => handleNavClick('dashboard')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-              activeView === 'dashboard' 
-                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-            }`}
-            title="Dashboard"
-          >
-            <BarChart2 className="w-5 h-5 shrink-0" />
-            {isSidebarOpen && <span>Dashboard</span>}
-          </button>
-          
-          <button
-            onClick={() => handleNavClick('news')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-              activeView === 'news' 
-                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 font-medium' 
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50'
-            }`}
-            title="Portal Berita"
-          >
-            <FileText className="w-5 h-5 shrink-0" />
-            {isSidebarOpen && <span>Portal Berita</span>}
-          </button>
-
-          <button
-            onClick={handleReportClick}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800/50`}
-            title="Laporan"
-          >
-            <FileDown className="w-5 h-5 shrink-0" />
-            {isSidebarOpen && <span>Laporan</span>}
-          </button>
-        </nav>
-
-        {/* Sidebar Footer */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
-          <button
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-            title={isDarkMode ? "Mode Terang" : "Mode Gelap"}
-          >
-            {isDarkMode ? <Sun className="w-5 h-5 shrink-0" /> : <Moon className="w-5 h-5 shrink-0" />}
-            {isSidebarOpen && <span>{isDarkMode ? 'Mode Terang' : 'Mode Gelap'}</span>}
-          </button>
-          
-          <div className="flex items-center gap-3 px-3 py-2 mt-2">
-            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
-              <span className="text-blue-700 dark:text-blue-300 font-bold text-sm">A</span>
-            </div>
-            {isSidebarOpen && (
-              <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">Admin User</span>
-                <span className="text-xs text-gray-500 dark:text-gray-400 truncate">admin@jabarprov.go.id</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Wrapper */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top Header */}
-        <header className="h-16 bg-white dark:bg-gray-950 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10">
-          <div className="flex items-center gap-3 md:gap-4 flex-1">
-            {/* Mobile Logo */}
-            <div className="md:hidden flex items-center shrink-0">
-              <img src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" alt="Logo" className="w-8 h-8" />
-            </div>
-            
-            <h1 className="text-lg font-bold text-gray-800 dark:text-gray-100 hidden sm:block whitespace-nowrap">
-              {activeView === 'dashboard' ? 'Dashboard Analitik' : 'Portal Berita'}
-            </h1>
-            
-            {/* Search Bar in Header */}
-            <div className="max-w-md w-full relative ml-0 sm:ml-4 lg:ml-8">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
-              </div>
-              <input
-                type="text"
-                placeholder="Cari berita atau media..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-9 pr-9 py-2 border border-gray-200 dark:border-gray-700 rounded-full leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 text-sm transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+            <div>
+              <h1 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">
+                {activeView === 'dashboard' ? 'Dashboard Utama' : 
+                 activeView === 'news' ? 'Portal Berita' : 
+                 activeView === 'map' ? 'Peta Sebaran' : 
+                 activeView === 'insight' ? 'AI Strategic Insight' : 'Pengaturan Sistem'}
+              </h1>
+              <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
+                Media Monitoring News Online
+              </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 md:gap-4 ml-3 md:ml-4 shrink-0">
-            {/* Mobile Dark Mode Toggle */}
-            <button
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              className="md:hidden p-2 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-              title={isDarkMode ? "Mode Terang" : "Mode Gelap"}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-
-            <div 
-              className={`flex items-center gap-2 px-2 py-1.5 md:px-3 rounded-full border ${
-                error ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-600 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-600 dark:text-green-400'
-              }`}
-              title={error ? `Error: ${error}` : 'Terhubung ke Google Sheets'}
-            >
-              <span className="relative flex h-2.5 w-2.5 shrink-0">
-                {!error && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-                <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${error ? 'bg-red-500' : 'bg-green-500'}`}></span>
-              </span>
-              <span className="text-[10px] font-medium tracking-wider hidden sm:inline">{error ? 'SYNC ERROR' : 'LIVE'}</span>
-            </div>
-            
-            <div className="text-right hidden lg:block">
+          <div className="flex items-center gap-3">
+            <div className="text-right hidden lg:block mr-4">
               <div className="text-sm font-medium text-gray-700 dark:text-gray-300">{formatDate(currentTime)}</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">{formatTime(currentTime)}</div>
             </div>
-            
-            {/* Mobile Profile Avatar */}
-            <div className="md:hidden w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center shrink-0">
-              <span className="text-blue-700 dark:text-blue-300 font-bold text-xs">A</span>
+
+            <button 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              className="p-2.5 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-gray-100 dark:border-gray-700 shadow-sm"
+              title={isDarkMode ? "Ganti ke Mode Terang" : "Ganti ke Mode Gelap"}
+            >
+              {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+            <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-800 mx-1 hidden sm:block"></div>
+            <div className="flex items-center gap-3 pl-1">
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-gray-900 dark:text-white leading-none mb-1">Annas Anugrah</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium">Administrator</p>
+              </div>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-700 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20 border-2 border-white dark:border-gray-800">
+                AA
+              </div>
             </div>
           </div>
         </header>
 
         {/* Breaking News Ticker */}
-        <div className="bg-[#172A68] dark:bg-gray-900 text-white px-4 lg:px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap shrink-0 border-b border-blue-900 dark:border-gray-800">
+        <div className="bg-[#172A68] dark:bg-gray-900 text-white px-4 lg:px-6 py-2 flex items-center text-sm overflow-hidden whitespace-nowrap shrink-0 border-b border-blue-900 dark:border-gray-800 relative z-30">
           <div className="flex items-center gap-2 font-bold text-red-400 mr-6 shrink-0 z-10 bg-[#172A68] dark:bg-gray-900 pr-4 transition-colors">
             <Radio className="w-4 h-4 animate-pulse" />
             BREAKING
@@ -902,8 +790,22 @@ export default function App() {
           </div>
         </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <main className="p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto space-y-6">
+        <div className="flex-1 overflow-y-auto">
+          <main className="p-4 md:p-6 pb-24 md:pb-6 max-w-[1600px] mx-auto space-y-6 relative">
+          {/* Top Loading Bar */}
+          <AnimatePresence>
+            {loading && data.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute top-0 left-0 right-0 h-1 z-50 overflow-hidden"
+              >
+                <div className="h-full bg-blue-500 animate-[loading_1.5s_infinite_linear]"></div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
         <AnimatePresence mode="wait">
           <motion.div
             key={activeView}
@@ -914,11 +816,200 @@ export default function App() {
           >
             {loading && data.length === 0 ? (
               activeView === 'news' ? <NewsPortalSkeleton /> : <DashboardSkeleton />
+            ) : error && data.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-gray-800 rounded-2xl border border-red-100 dark:border-red-900/30 shadow-sm">
+                <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-full text-red-600 dark:text-red-400 mb-4">
+                  <X className="w-8 h-8" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">Gagal Memuat Data</h3>
+                <p className="text-gray-500 dark:text-gray-400 max-w-md text-center mb-6">
+                  Terjadi kesalahan saat mengambil data dari Google Sheets. Silakan periksa koneksi internet Anda atau coba lagi nanti.
+                </p>
+                <button 
+                  onClick={() => fetchData(true)}
+                  className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-md active:scale-95"
+                >
+                  Coba Lagi
+                </button>
+                <p className="mt-4 text-xs text-red-400 dark:text-red-500 font-mono">{error}</p>
+              </div>
             ) : activeView === 'news' ? (
               <NewsPortal 
                 newsData={recentNews} 
                 onSelectNews={setSelectedNews} 
               />
+            ) : activeView === 'map' ? (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Peta Sebaran Berita Jawa Barat</h2>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Analisis intensitas pemberitaan berdasarkan wilayah geografis</p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-gray-50 dark:bg-gray-900 p-2 rounded-xl border border-gray-100 dark:border-gray-700">
+                      <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rendah</span>
+                      <div className="w-8 h-1.5 bg-gradient-to-r from-yellow-400 to-red-600 rounded-full mx-1"></div>
+                      <div className="w-3 h-3 rounded-full bg-red-600"></div>
+                      <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Tinggi</span>
+                    </div>
+                  </div>
+                  <div className="h-[600px] w-full rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 relative z-0">
+                    <MapContainer 
+                      center={mapCenter}
+                      zoom={mapZoom}
+                      style={{ height: '100%', width: '100%' }}
+                      scrollWheelZoom={true}
+                    >
+                      <MapZoomer center={mapCenter} zoom={mapZoom} />
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url={isDarkMode ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"}
+                      />
+                      {mapData.map((loc, idx) => {
+                        const maxCount = Math.max(...mapData.map(d => d.count));
+                        const intensity = loc.count / maxCount;
+                        const radius = 15 + (intensity * 35);
+                        const r = 255;
+                        const g = Math.floor(255 * (1 - intensity));
+                        const b = 0;
+                        const color = `rgb(${r}, ${g}, ${b})`;
+
+                        return (
+                          <CircleMarker
+                            key={idx}
+                            center={[loc.lat, loc.lng]}
+                            radius={radius}
+                            pathOptions={{ 
+                              fillColor: color, 
+                              fillOpacity: 0.6, 
+                              color: color, 
+                              weight: 1 
+                            }}
+                            eventHandlers={{
+                              click: () => {
+                                setRegionFilter(loc.name);
+                                setMapCenter([loc.lat, loc.lng]);
+                                setMapZoom(11);
+                              }
+                            }}
+                          >
+                            <LeafletTooltip direction="top" offset={[0, -10]} opacity={1}>
+                              <div className="text-center p-1">
+                                <div className="font-bold text-gray-800">{loc.name}</div>
+                                <div className="text-xs text-blue-600 font-bold">{loc.count.toLocaleString('id-ID')} Berita</div>
+                              </div>
+                            </LeafletTooltip>
+                          </CircleMarker>
+                        );
+                      })}
+                    </MapContainer>
+                  </div>
+                </div>
+              </div>
+            ) : activeView === 'insight' ? (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-4 mb-8 border-b border-gray-100 dark:border-gray-700 pb-6">
+                    <div className="p-3 bg-blue-600 rounded-2xl shadow-lg shadow-blue-500/20">
+                      <Sparkles className="w-8 h-8 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">AI Strategic Insight</h2>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">Analisis narasi dan rekomendasi kebijakan berbasis kecerdasan buatan</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div className="lg:col-span-2 space-y-6">
+                      <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                        <h3 className="text-lg font-bold text-blue-900 dark:text-blue-300 mb-4 flex items-center gap-2">
+                          <Activity className="w-5 h-5" /> Ringkasan Narasi Utama
+                        </h3>
+                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                          Berdasarkan data {totalBerita} berita terakhir, narasi pariwisata Jawa Barat didominasi oleh sentimen positif ({pctPos}%) yang dipicu oleh akselerasi promosi destinasi unggulan seperti {topDestinations[0]?.name} dan {topDestinations[1]?.name}. Namun, perlu mitigasi terhadap {pctNeg}% sentimen negatif yang mulai muncul terkait isu infrastruktur aksesibilitas.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">Potensi Krisis</h4>
+                          <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="text-xs font-bold">Eskalasi Keluhan Infrastruktur</span>
+                          </div>
+                        </div>
+                        <div className="p-5 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                          <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-2 uppercase tracking-wider">Peluang Viral</h4>
+                          <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="text-xs font-bold">Wisata Hidden Gem {topDestinations[2]?.name}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-gray-50 dark:bg-gray-900/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                      <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 border-b border-gray-200 dark:border-gray-800 pb-4">Rekomendasi Taktis</h3>
+                      <ul className="space-y-4">
+                        {[
+                          "Akselerasi konten visual di media sosial untuk wilayah " + topDestinations[0]?.name,
+                          "Mitigasi narasi negatif terkait kemacetan di jalur wisata utama",
+                          "Kolaborasi dengan media " + topMedia.list[0]?.name + " untuk kampanye Jabar Smile",
+                          "Optimalisasi promosi paket wisata akhir pekan"
+                        ].map((rec, i) => (
+                          <li key={i} className="flex gap-3 text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                            <div className="w-5 h-5 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center shrink-0 text-blue-600 dark:text-blue-400 font-bold">{i+1}</div>
+                            {rec}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : activeView === 'settings' ? (
+              <div className="space-y-6">
+                <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 max-w-2xl">
+                  <h2 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tight mb-8 border-b border-gray-100 dark:border-gray-700 pb-6 flex items-center gap-3">
+                    <Settings className="w-6 h-6 text-gray-400" /> Pengaturan Sistem
+                  </h2>
+                  
+                  <div className="space-y-8">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-sm font-bold text-gray-900 dark:text-white">Mode Tampilan</h3>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Sesuaikan tema aplikasi dengan preferensi Anda</p>
+                      </div>
+                      <button 
+                        onClick={() => setIsDarkMode(!isDarkMode)}
+                        className={`w-14 h-8 rounded-full transition-colors relative ${isDarkMode ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      >
+                        <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform shadow-sm flex items-center justify-center ${isDarkMode ? 'translate-x-6' : ''}`}>
+                          {isDarkMode ? <Moon className="w-3 h-3 text-blue-600" /> : <Sun className="w-3 h-3 text-yellow-500" />}
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-bold text-gray-900 dark:text-white">Sumber Data</h3>
+                      <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-xl border border-gray-100 dark:border-gray-800">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Google Sheets URL</span>
+                          <span className="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded-full">Terhubung</span>
+                        </div>
+                        <p className="text-xs text-gray-400 truncate font-mono">{CSV_URL}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-6 border-t border-gray-100 dark:border-gray-700">
+                      <p className="text-[10px] text-gray-400 text-center uppercase tracking-[0.3em]">
+                        Media Monitoring News Online v2.4.0 • 2026
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="space-y-6">
                 {/* Filter Bar */}
@@ -967,14 +1058,9 @@ export default function App() {
               </div>
               
               {/* Reset Filter Button */}
-              {(timeFilter !== '7 Hari' || regionFilter !== 'Semua' || searchQuery !== '' || activeTab !== 'Semua') && (
+              {(timeFilter !== '7 Hari' || regionFilter !== 'Semua' || searchQuery !== '' || sentimentFilter !== 'Semua') && (
                 <button
-                  onClick={() => {
-                    setTimeFilter('7 Hari');
-                    setRegionFilter('Semua');
-                    setSearchQuery('');
-                    setActiveTab('Semua');
-                  }}
+                  onClick={resetFilters}
                   className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors border border-red-100 dark:border-red-900/30"
                 >
                   <X className="w-3.5 h-3.5" /> Reset Filter
@@ -989,28 +1075,6 @@ export default function App() {
               <FileDown className="w-4 h-4" />
               Generate Laporan
             </button>
-          </div>
-          
-          {/* Search Bar */}
-          <div className="w-full relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Cari berita, media, atau destinasi..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-10 py-2 border border-gray-200 dark:border-gray-700 rounded-lg leading-5 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none focus:bg-white dark:focus:bg-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-colors"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
           </div>
         </div>
 
@@ -1312,25 +1376,51 @@ export default function App() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Berita Terkini Table */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 lg:col-span-2 flex flex-col transition-colors duration-300">
-            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
-              <div>
-                <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Berita Terkini</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">Monitoring real-time pemberitaan pariwisata</p>
+            <div className="p-5 border-b border-gray-100 dark:border-gray-700 flex flex-col gap-4">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-base font-bold text-gray-800 dark:text-gray-100">Berita Terkini</h2>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Monitoring real-time pemberitaan pariwisata</p>
+                </div>
+                <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg">
+                  {['Semua', 'Positif', 'Netral', 'Negatif'].map(tab => (
+                    <button
+                      key={tab}
+                      onClick={() => setSentimentFilter(tab)}
+                      className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                        sentimentFilter === tab 
+                          ? 'bg-blue-600 dark:bg-blue-500 text-white shadow-sm' 
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex bg-gray-100 dark:bg-gray-900 p-1 rounded-lg">
-                {['Semua', 'Positif', 'Netral', 'Negatif'].map(tab => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                      activeTab === tab 
-                        ? 'bg-blue-600 dark:bg-blue-500 text-white shadow-sm' 
-                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
+
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari judul, media, atau destinasi..."
+                    value={localSearchQuery}
+                    onChange={(e) => setLocalSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all dark:text-gray-200"
+                  />
+                  {localSearchQuery && (
+                    <button 
+                      onClick={() => setLocalSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  Menampilkan <span className="text-blue-600 dark:text-blue-400">{filteredNews.length}</span> dari <span className="text-gray-900 dark:text-gray-100">{recentNews.length}</span> berita
+                </div>
               </div>
             </div>
             <div className="hidden md:block overflow-x-auto flex-1">
@@ -1560,7 +1650,7 @@ export default function App() {
             </div>
           </div>
         </div>
-        </div>
+      </div>
             )}
           </motion.div>
         </AnimatePresence>
@@ -1572,6 +1662,10 @@ export default function App() {
         @keyframes marquee {
           0% { transform: translateX(0%); }
           100% { transform: translateX(-50%); }
+        }
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
         }
       `}} />
 
@@ -1597,32 +1691,7 @@ export default function App() {
           </motion.button>
         )}
       </AnimatePresence>
-
-      {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 z-50 flex justify-around items-center p-2 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => setActiveView('dashboard')} 
-          className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'dashboard' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
-        >
-          <BarChart2 className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Dashboard</span>
-        </button>
-        <button 
-          onClick={() => setActiveView('news')} 
-          className={`flex flex-col items-center p-2 w-full transition-colors ${activeView === 'news' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'}`}
-        >
-          <FileText className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Portal Berita</span>
-        </button>
-        <button 
-          onClick={() => setIsReportModalOpen(true)} 
-          className={`flex flex-col items-center p-2 w-full transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100`}
-        >
-          <FileDown className="w-5 h-5 mb-1" />
-          <span className="text-[10px] font-medium">Laporan</span>
-        </button>
-      </div>
-      </div>
+    </div>
     </div>
   );
 }

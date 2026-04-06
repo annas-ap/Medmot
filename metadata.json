@@ -1,5 +1,5 @@
 {
-  "name": "Live Sheets Dashboard",
-  "description": "A real-time dashboard connected to a published Google Sheets CSV.",
+  "name": "Media Monitoring News Online",
+  "description": "A real-time dashboard for monitoring news online, connected to a published Google Sheets CSV.",
   "requestFramePermissions": []
 }

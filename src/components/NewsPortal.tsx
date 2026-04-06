@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Search, ExternalLink, Calendar, MapPin, TrendingUp, Filter, Clock, ChevronRight, X } from 'lucide-react';
+import { useFilters } from '../contexts/FilterContext';
 
 interface NewsItem {
   id: number;
@@ -19,8 +20,7 @@ interface NewsPortalProps {
 }
 
 export default function NewsPortal({ newsData, onSelectNews }: NewsPortalProps) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sentimentFilter, setSentimentFilter] = useState('Semua');
+  const { searchQuery, setSearchQuery, sentimentFilter, setSentimentFilter } = useFilters();
   const [visibleCount, setVisibleCount] = useState(14); // 2 top + 12 grid
 
   // Reset visible count when filters change
