@@ -1,8 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
-import { toPng } from 'html-to-image';
-import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
 import { saveAs } from 'file-saver';
 import pptxgen from 'pptxgenjs';
@@ -16,12 +14,17 @@ interface ReportStudioProps {
   recentNews: any[];
   topDestinations: any[];
   mapData?: any[];
+  period?: string;
 }
 
-export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData }: ReportStudioProps) {
+export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, period }: ReportStudioProps) {
   const [reportTitle, setReportTitle] = useState('LAPORAN ANALISIS MEDIA MONITORING');
   const [reportSubtitle, setReportSubtitle] = useState('Pariwisata Jawa Barat');
-  const [reportPeriod, setReportPeriod] = useState('MARET 2026');
+  const [reportPeriod, setReportPeriod] = useState(period || 'MARET 2026');
+  
+  useEffect(() => {
+    if (period) setReportPeriod(period);
+  }, [period]);
   
   const [posSummary, setPosSummary] = useState('Volume pemberitaan pariwisata Jawa Barat meningkat 12.4% dibanding bulan sebelumnya.\n\nDominasi sentimen positif (54.2%) menunjukkan citra pariwisata Jabar yang baik di mata media.\n\nKota Bandung dan Kab. Bogor konsisten menjadi destinasi dengan pemberitaan tertinggi.');
   const [negSummary, setNegSummary] = useState('Isu kebersihan di beberapa destinasi memerlukan penanganan segera.\n\nKemacetan jalur wisata terus menjadi sorotan negatif di media.\n\nInfrastruktur jalan menuju beberapa destinasi selatan masih belum memenuhi harapan wisatawan.');
@@ -126,6 +129,9 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           @page {
             size: A4;
             margin: 20mm;
+            @bottom-right {
+              content: "Hal. " counter(page);
+            }
           }
           .page-break {
             page-break-before: always;
@@ -133,10 +139,30 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           .avoid-break {
             page-break-inside: avoid;
           }
-          /* Ensure content doesn't overlap with fixed header/footer */
-          #printable-report {
-            padding-top: 10mm !important;
-            padding-bottom: 10mm !important;
+          /* Header/Footer on every page */
+          .print-header {
+            display: block !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            text-align: right;
+            font-size: 10px;
+            color: #9ca3af;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+          }
+          .print-footer {
+            display: block !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            color: #9ca3af;
+            border-top: 1px solid #e5e7eb;
+            padding-top: 5px;
           }
         }
       `}} />
@@ -234,11 +260,11 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
         <div 
           id="printable-report"
           ref={reportRef}
-          className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-2xl p-[20mm] text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
+          className="bg-white w-full max-w-[210mm] shadow-2xl p-[20mm] text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
           style={{ color: '#111827' }} // Force dark text for PDF
         >
           {/* Document Header */}
-          <div className="hidden print:block fixed top-0 left-0 w-full text-xs text-gray-400 border-b border-gray-200 pb-2 mb-4 text-right">
+          <div className="hidden print:block print-header">
             Laporan Media Monitoring - {reportPeriod}
           </div>
 
@@ -248,13 +274,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
               LAPORAN MEDIA MONITORING PARIWISATA JAWA BARAT
             </div>
             <div className="text-xs text-gray-500 relative group">
-              <input 
-                type="text" 
-                value={reportPeriod}
-                onChange={(e) => setReportPeriod(e.target.value)}
-                className="text-right bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-100 p-1 rounded w-24"
-              />
-              <Edit3 className="w-3 h-3 text-gray-400 absolute -left-4 top-2 opacity-0 group-hover:opacity-100 edit-icon" />
+              <span className="text-right">{reportPeriod}</span>
             </div>
           </div>
 
@@ -578,7 +598,11 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                         <td className="p-2 text-center">{idx + 1}</td>
                         <td className="p-2 whitespace-nowrap">{news.tanggal.split(',')[0]}</td>
                         <td className="p-2">{news.media}</td>
-                        <td className="p-2 pr-4">{news.judul}</td>
+                        <td className="p-2 pr-4">
+                          <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {news.judul}
+                          </a>
+                        </td>
                         <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
                       </tr>
                     );
@@ -594,7 +618,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           )}
 
           {/* Document Footer */}
-          <div className="hidden print:block fixed bottom-0 left-0 w-full text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 text-center">
+          <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 text-center">
             Dihasilkan oleh Media Intelligence Unit - Dinas Pariwisata Provinsi Jawa Barat
           </div>
 

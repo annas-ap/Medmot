@@ -976,6 +976,7 @@ export default function App() {
                 recentNews={recentNews}
                 topDestinations={topDestinations}
                 mapData={mapData}
+                period={timeFilter}
               />
             ) : activeView === 'settings' ? (
               <div className="space-y-6">
