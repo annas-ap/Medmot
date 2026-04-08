@@ -1,7 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
+import TextareaAutosize from 'react-textarea-autosize';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import { toPng } from 'html-to-image';
+import jsPDF from 'jspdf';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
 import pptxgen from 'pptxgenjs';
 import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip } from 'react-leaflet';
@@ -14,23 +17,34 @@ interface ReportStudioProps {
   recentNews: any[];
   topDestinations: any[];
   mapData?: any[];
-  period?: string;
+  timeFilter: string;
 }
 
-export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, period }: ReportStudioProps) {
-  const [reportTitle, setReportTitle] = useState('LAPORAN ANALISIS MEDIA MONITORING');
-  const [reportSubtitle, setReportSubtitle] = useState('Pariwisata Jawa Barat');
-  const [reportPeriod, setReportPeriod] = useState(period || 'MARET 2026');
-  
-  useEffect(() => {
-    if (period) setReportPeriod(period);
-  }, [period]);
-  
-  const [posSummary, setPosSummary] = useState('Volume pemberitaan pariwisata Jawa Barat meningkat 12.4% dibanding bulan sebelumnya.\n\nDominasi sentimen positif (54.2%) menunjukkan citra pariwisata Jabar yang baik di mata media.\n\nKota Bandung dan Kab. Bogor konsisten menjadi destinasi dengan pemberitaan tertinggi.');
-  const [negSummary, setNegSummary] = useState('Isu kebersihan di beberapa destinasi memerlukan penanganan segera.\n\nKemacetan jalur wisata terus menjadi sorotan negatif di media.\n\nInfrastruktur jalan menuju beberapa destinasi selatan masih belum memenuhi harapan wisatawan.');
-  
-  const [recommendations, setRecommendations] = useState('1. Penanganan Kebersihan Destinasi Wisata\nTingkatkan program kebersihan di destinasi populer. Libatkan komunitas lokal dan UMKM. Pasang fasilitas kebersihan yang memadai dan terapkan sanksi tegas.\n\n2. Peningkatan Infrastruktur Aksesibilitas\nKoordinasikan dengan dinas terkait untuk percepatan perbaikan jalan menuju destinasi yang sering dikeluhkan. Kembangkan alternatif transportasi publik wisata.\n\n3. Optimalisasi Kampanye Digital\nPerkuat kehadiran di platform TikTok dan Instagram Reels. Kolaborasi dengan konten kreator lokal. Targetkan wisatawan mancanegara melalui kampanye berbahasa Inggris.');
+export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, timeFilter }: ReportStudioProps) {
+  const getPeriodText = (filter: string) => {
+    const now = new Date();
+    const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+    
+    if (filter === 'Hari Ini') {
+      return `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    } else if (filter === '7 Hari') {
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(now.getDate() - 7);
+      return `${sevenDaysAgo.getDate()} ${months[sevenDaysAgo.getMonth()]} s.d ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    } else if (filter === '30 Hari') {
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(now.getDate() - 30);
+      return `${thirtyDaysAgo.getDate()} ${months[thirtyDaysAgo.getMonth()]} s.d ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    } else if (filter === 'Tahun Ini') {
+      return `Januari ${now.getFullYear()} s.d Desember ${now.getFullYear()}`;
+    }
+    return 'Seluruh Periode';
+  };
 
+  const [reportTitle, setReportTitle] = useState('Laporan Digital News Monitoring SWJ');
+  const [reportSubtitle, setReportSubtitle] = useState('Pariwisata Jawa Barat');
+  const [reportPeriod, setReportPeriod] = useState(getPeriodText(timeFilter));
+  
   const [components, setComponents] = useState({
     cover: true,
     execSummary: true,
@@ -58,6 +72,63 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   const indeksSentimen = totalSentiment ? ((sentimentCounts.positif * 1) + (sentimentCounts.negatif * -1)) / totalSentiment : 0;
   const indeksFormatted = indeksSentimen > 0 ? `+${indeksSentimen.toFixed(2)}` : indeksSentimen.toFixed(2);
 
+  const [execSummary1, setExecSummary1] = useState(`Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode ${timeFilter.toUpperCase()}. Data dikumpulkan dari ${topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.`);
+  const [execSummary2, setExecSummary2] = useState(`Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada periode ${timeFilter.toUpperCase()} menunjukkan tren positif dengan total ${totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka ${indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.`);
+  
+  // Update period and summaries when timeFilter changes
+  React.useEffect(() => {
+    const period = getPeriodText(timeFilter);
+    setReportPeriod(period);
+    setExecSummary1(`Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode ${timeFilter.toUpperCase()}. Data dikumpulkan dari ${topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.`);
+    setExecSummary2(`Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada periode ${timeFilter.toUpperCase()} menunjukkan tren positif dengan total ${totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka ${indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.`);
+  }, [timeFilter, totalBerita, topMedia.totalUnique, indeksFormatted]);
+  
+  const [posSummary, setPosSummary] = useState('Volume pemberitaan pariwisata Jawa Barat meningkat 12.4% dibanding bulan sebelumnya.\n\nDominasi sentimen positif (54.2%) menunjukkan citra pariwisata Jabar yang baik di mata media.\n\nKota Bandung dan Kab. Bogor konsisten menjadi destinasi dengan pemberitaan tertinggi.');
+  const [negSummary, setNegSummary] = useState('Isu kebersihan di beberapa destinasi memerlukan penanganan segera.\n\nKemacetan jalur wisata terus menjadi sorotan negatif di media.\n\nInfrastruktur jalan menuju beberapa destinasi selatan masih belum memenuhi harapan wisatawan.');
+  
+  const [recommendations, setRecommendations] = useState('1. Penanganan Kebersihan Destinasi Wisata\nTingkatkan program kebersihan di destinasi populer. Libatkan komunitas lokal dan UMKM. Pasang fasilitas kebersihan yang memadai dan terapkan sanksi tegas.\n\n2. Peningkatan Infrastruktur Aksesibilitas\nKoordinasikan dengan dinas terkait untuk percepatan perbaikan jalan menuju destinasi yang sering dikeluhkan. Kembangkan alternatif transportasi publik wisata.\n\n3. Optimalisasi Kampanye Digital\nPerkuat kehadiran di platform TikTok dan Instagram Reels. Kolaborasi dengan konten kreator lokal. Targetkan wisatawan mancanegara melalui kampanye berbahasa Inggris.');
+
+  const Page = ({ children, header, footer, currentPage, totalPages }: { children: React.ReactNode, header?: React.ReactNode, footer?: React.ComponentType<{ currentPage: number, totalPages: number }>, currentPage: number, totalPages: number }) => (
+    <div className="bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
+      {header}
+      <div className="flex-1">
+        {children}
+      </div>
+      {footer && React.createElement(footer, { currentPage, totalPages })}
+    </div>
+  );
+
+  const Header = () => (
+    <>
+      <div className="border-b-2 border-[#1E3A8A] pb-2 mb-12 flex justify-between items-end avoid-break">
+        <div className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider">
+          Laporan Digital News Monitoring SWJ
+        </div>
+        <div className="text-xs text-gray-500 relative group">
+          <input 
+            type="text" 
+            value={reportPeriod}
+            onChange={(e) => setReportPeriod(e.target.value)}
+            className="w-full text-right bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
+          />
+        </div>
+      </div>
+    </>
+  );
+
+  const Footer = ({ currentPage, totalPages }: { currentPage: number, totalPages: number }) => (
+    <>
+      <div className="block print:hidden border-t border-gray-200 pt-2 mt-8 flex justify-between items-center text-xs text-gray-400">
+        <span>Media Intelligence 209</span>
+        <span>hal {currentPage} dari {totalPages}</span>
+      </div>
+      <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 flex justify-between items-center">
+        <span>Media Intelligence 209</span>
+        <span>hal {currentPage} dari {totalPages}</span>
+      </div>
+    </>
+  );
+
   const exportPDF = () => {
     window.print();
   };
@@ -65,14 +136,342 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   const exportDOCX = async () => {
     setIsExporting(true);
     try {
+      const children: any[] = [];
+
+      // Cover
+      if (components.cover) {
+        children.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 100 },
+          children: [new TextRun({ text: "DINAS PARIWISATA PROVINSI JAWA BARAT", bold: true, color: "6B7280", size: 28 })]
+        }));
+        children.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 400 },
+          children: [new TextRun({ text: "Media Intelligence 209", italics: true, color: "9CA3AF", size: 24 })]
+        }));
+        children.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 200 },
+          children: [new TextRun({ text: reportTitle, bold: true, color: "1E3A8A", size: 48 })]
+        }));
+        children.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 200 },
+          children: [new TextRun({ text: reportSubtitle, bold: true, color: "1F2937", size: 60 })]
+        }));
+        children.push(new Paragraph({ 
+          alignment: AlignmentType.CENTER, 
+          spacing: { after: 400 },
+          children: [new TextRun({ text: reportPeriod, bold: true, color: "3B82F6", size: 40 })]
+        }));
+        
+        // Metrics Table
+        const metricsTable = new Table({
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "TOTAL BERITA", bold: true, color: "FFFFFF", size: 20 })] })] }),
+                new TableCell({ shading: { fill: "10B981" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN +", bold: true, color: "FFFFFF", size: 20 })] })] }),
+                new TableCell({ shading: { fill: "F59E0B" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN NETRAL", bold: true, color: "FFFFFF", size: 20 })] })] }),
+                new TableCell({ shading: { fill: "EF4444" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN -", bold: true, color: "FFFFFF", size: 20 })] })] }),
+              ]
+            }),
+            new TableRow({
+              children: [
+                new TableCell({ shading: { fill: "EFF6FF" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: totalBerita.toLocaleString('id-ID'), bold: true, color: "1E3A8A", size: 48 })] })] }),
+                new TableCell({ shading: { fill: "ECFDF5" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.positif.toLocaleString('id-ID'), bold: true, color: "10B981", size: 48 })] })] }),
+                new TableCell({ shading: { fill: "FFFBEB" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.netral.toLocaleString('id-ID'), bold: true, color: "F59E0B", size: 48 })] })] }),
+                new TableCell({ shading: { fill: "FEF2F2" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.negatif.toLocaleString('id-ID'), bold: true, color: "EF4444", size: 48 })] })] }),
+              ]
+            })
+          ],
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        });
+        children.push(metricsTable);
+        children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200 }, children: [new TextRun({ text: `Indeks Sentimen: ${indeksFormatted} / 1.00`, bold: true, color: indeksSentimen > 0 ? "10B981" : "EF4444" })] }));
+        children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 400 }, children: [new TextRun({ text: `Media Terpantau: ${topMedia.totalUnique} media`, color: "6B7280" })] }));
+      }
+
+      // Executive Summary
+      if (components.execSummary) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "1. Ringkasan Eksekutif", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode ${reportPeriod}. Data dikumpulkan dari ${topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.`, spacing: { after: 200 } }));
+        children.push(new Paragraph({ 
+          spacing: { after: 200 },
+          children: [new TextRun({ text: "1.1 Temuan Utama", bold: true, color: "1E40AF", size: 28 })] 
+        }));
+        children.push(new Paragraph({ text: `Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada ${reportPeriod} menunjukkan tren positif dengan total ${totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka ${indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.`, spacing: { after: 200 } }));
+        
+        const summaryTable = new Table({
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({ shading: { fill: "10B981" }, children: [new Paragraph({ spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Hal Menonjol Positif", bold: true, color: "FFFFFF" })] })] }),
+                new TableCell({ shading: { fill: "EF4444" }, children: [new Paragraph({ spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Hal yang Memerlukan Perhatian", bold: true, color: "FFFFFF" })] })] }),
+              ]
+            }),
+            new TableRow({
+              children: [
+                new TableCell({ shading: { fill: "ECFDF5" }, children: [new Paragraph({ text: posSummary, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ shading: { fill: "FEF2F2" }, children: [new Paragraph({ text: negSummary, spacing: { before: 100, after: 100 } })] }),
+              ]
+            })
+          ],
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        });
+        children.push(summaryTable);
+      }
+
+      // Heatmap (Stats)
+      if (components.heatmap) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "2. Peta Sebaran Berita (Heatmap)", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama ${reportPeriod}. (Visualisasi peta tersedia pada versi PDF/Web).`, spacing: { after: 200 } }));
+      }
+
+      // Destinations
+      if (components.destinations) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "3. Destinasi Wisata Paling Banyak Diberitakan", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Berikut adalah destinasi dengan volume pemberitaan tertinggi selama ${reportPeriod} berdasarkan data media monitoring:`, spacing: { after: 200 } }));
+        
+        const destRows = [
+          new TableRow({
+            children: [
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "#", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Destinasi", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Jumlah Berita", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Persentase", bold: true, color: "FFFFFF" })] })] }),
+            ]
+          })
+        ];
+        
+        topDestinations.slice(0, 8).forEach((dest, index) => {
+          const pct = totalBerita > 0 ? ((dest.count / totalBerita) * 100).toFixed(1) : '0';
+          destRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: `${index + 1}`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: dest.name, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: dest.count.toLocaleString('id-ID'), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: `${pct}%`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+              ]
+            })
+          );
+        });
+        
+        children.push(new Table({ 
+          rows: destRows, 
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        }));
+      }
+
+      // Media
+      if (components.media) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "4. Sumber Media Terbanyak", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Dari ${topMedia.totalUnique} media yang dipantau, berikut adalah 10 sumber dengan kontribusi pemberitaan terbesar:`, spacing: { after: 200 } }));
+        
+        const mediaRows = [
+          new TableRow({
+            children: [
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "#", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Nama Media", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Jumlah Berita", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Porsi", bold: true, color: "FFFFFF" })] })] }),
+            ]
+          })
+        ];
+        
+        topMedia.list.slice(0, 10).forEach((m, index) => {
+          mediaRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: `${index + 1}`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: m.name || m.domain, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: m.count.toLocaleString('id-ID'), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: `${m.pct}%`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+              ]
+            })
+          );
+        });
+        
+        children.push(new Table({ 
+          rows: mediaRows, 
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        }));
+      }
+
+      // News
+      if (components.news) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "5. Berita Utama Bulan Ini", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Berikut adalah berita dengan dampak dan perhatian media tertinggi selama periode ${reportPeriod}:`, spacing: { after: 200 } }));
+        
+        const newsRows = [
+          new TableRow({
+            children: [
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Judul Berita", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Media", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Tanggal", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Sentimen", bold: true, color: "FFFFFF" })] })] }),
+            ]
+          })
+        ];
+        
+        recentNews.slice(0, 8).forEach((item, index) => {
+          let sentimentColor = "F59E0B";
+          let sentimentFill = "FFFBEB";
+          if (item.sentimen === 'Positif' || item.sentiment === 'Positif') {
+            sentimentColor = "10B981";
+            sentimentFill = "ECFDF5";
+          } else if (item.sentimen === 'Negatif' || item.sentiment === 'Negatif') {
+            sentimentColor = "EF4444";
+            sentimentFill = "FEF2F2";
+          }
+
+          newsRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: item.judul || item.title, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: item.media || item.domain, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: (item.tanggal || item.published_at || ""), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ shading: { fill: sentimentFill }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: item.sentimen || item.sentiment, bold: true, color: sentimentColor })] })] }),
+              ]
+            })
+          );
+        });
+        
+        children.push(new Table({ 
+          rows: newsRows, 
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        }));
+      }
+
+      // Recommendations
+      if (components.recommendations) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "6. Rekomendasi Strategis", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Berdasarkan hasil analisis pemberitaan ${reportPeriod}, berikut rekomendasi strategis untuk meningkatkan citra pariwisata Jawa Barat dan menangani isu yang berkembang di media:`, spacing: { after: 200 } }));
+        children.push(new Paragraph({ text: recommendations, spacing: { after: 200 } }));
+      }
+
+      // News Attachment
+      if (components.newsAttachment) {
+        children.push(new Paragraph({ 
+          spacing: { before: 400, after: 200 },
+          children: [new TextRun({ text: "7. Lampiran: Daftar Berita", bold: true, color: "1E3A8A", size: 32 })] 
+        }));
+        children.push(new Paragraph({ text: `Berikut adalah daftar lengkap berita yang dipantau selama periode ${reportPeriod}:`, spacing: { after: 200 } }));
+        
+        const tableRows = [
+          new TableRow({
+            children: [
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "No", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Tanggal", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Media", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Judul", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Sentimen", bold: true, color: "FFFFFF" })] })] }),
+            ],
+          })
+        ];
+
+        recentNews.forEach((item, index) => { 
+          let sentimentColor = "F59E0B";
+          let sentimentFill = "FFFBEB";
+          if (item.sentimen === 'Positif' || item.sentiment === 'Positif') {
+            sentimentColor = "10B981";
+            sentimentFill = "ECFDF5";
+          } else if (item.sentimen === 'Negatif' || item.sentiment === 'Negatif') {
+            sentimentColor = "EF4444";
+            sentimentFill = "FEF2F2";
+          }
+
+          tableRows.push(
+            new TableRow({
+              children: [
+                new TableCell({ children: [new Paragraph({ text: `${index + 1}`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: (item.tanggal || item.published_at || ""), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: item.media || item.domain, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ children: [new Paragraph({ text: item.judul || item.title, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ shading: { fill: sentimentFill }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: item.sentimen || item.sentiment, bold: true, color: sentimentColor })] })] }),
+              ]
+            })
+          );
+        });
+
+        children.push(new Table({
+          rows: tableRows,
+          width: { size: 100, type: WidthType.PERCENTAGE },
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            bottom: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            left: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            right: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+            insideVertical: { style: BorderStyle.SINGLE, size: 1, color: "E5E7EB" },
+          }
+        }));
+      }
+
       const doc = new Document({
         sections: [{
           properties: {},
-          children: [
-            new Paragraph({ text: reportTitle, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-            new Paragraph({ text: reportSubtitle, heading: HeadingLevel.HEADING_2, alignment: AlignmentType.CENTER }),
-            new Paragraph({ text: "Silakan gunakan format PDF untuk hasil yang sama persis dengan preview.", alignment: AlignmentType.CENTER })
-          ]
+          children: children
         }]
       });
       const blob = await Packer.toBlob(doc);
@@ -260,366 +659,401 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
         <div 
           id="printable-report"
           ref={reportRef}
-          className="bg-white w-full max-w-[210mm] shadow-2xl p-[20mm] text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
+          className="bg-white w-full max-w-[210mm] min-h-full shadow-2xl text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
           style={{ color: '#111827' }} // Force dark text for PDF
         >
-          {/* Document Header */}
-          <div className="hidden print:block print-header">
-            Laporan Media Monitoring - {reportPeriod}
-          </div>
+        
+          {(() => {
+            const activeComponents = Object.values(components).filter(Boolean).length;
+            let pageCount = 0;
+            return (
+              <>
+                <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+                  {/* Cover Section */}
+                  {components.cover && (
+                    <div className="mb-16 avoid-break">
+                      <div className="text-center mb-12">
+                        <img 
+                          src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" 
+                          alt="Smiling West Java Logo" 
+                          className="h-20 mx-auto mb-6"
+                          referrerPolicy="no-referrer"
+                        />
+                        <h3 className="text-sm font-bold text-gray-500 mb-1">DINAS PARIWISATA PROVINSI JAWA BARAT</h3>
+                        <p className="text-xs text-gray-400 italic mb-12">Media Intelligence 209</p>
+                        
+                        <div className="border-t-4 border-b-4 border-[#1E3A8A] py-6 my-6 relative group">
+                          <input 
+                            type="text" 
+                            value={reportTitle}
+                            onChange={(e) => setReportTitle(e.target.value)}
+                            className="w-full text-2xl font-bold text-center text-[#1E3A8A] bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
+                          />
+                          <input 
+                            type="text" 
+                            value={reportSubtitle}
+                            onChange={(e) => setReportSubtitle(e.target.value)}
+                            className="w-full text-3xl font-black text-center text-gray-800 mt-2 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
+                          />
+                          <input 
+                            type="text" 
+                            value={reportPeriod}
+                            onChange={(e) => setReportPeriod(e.target.value)}
+                            className="w-full text-xl font-bold text-center text-[#3B82F6] mt-4 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded uppercase"
+                          />
+                          <Edit3 className="w-4 h-4 text-gray-400 absolute top-2 right-2 opacity-0 group-hover:opacity-100 edit-icon" />
+                        </div>
+                      </div>
 
-          {/* Header Line */}
-          <div className="border-b-2 border-[#1E3A8A] pb-2 mb-12 flex justify-between items-end avoid-break">
-            <div className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider">
-              LAPORAN MEDIA MONITORING PARIWISATA JAWA BARAT
-            </div>
-            <div className="text-xs text-gray-500 relative group">
-              <span className="text-right">{reportPeriod}</span>
-            </div>
-          </div>
+                      {/* Metrics Table */}
+                      <div className="mb-8">
+                        <table className="w-full text-center border-collapse border border-gray-200">
+                          <thead>
+                            <tr className="text-white text-xs font-bold">
+                              <th className="bg-[#1E3A8A] p-3 border border-white w-1/4">TOTAL BERITA</th>
+                              <th className="bg-[#10B981] p-3 border border-white w-1/4">SENTIMEN +</th>
+                              <th className="bg-[#F59E0B] p-3 border border-white w-1/4">SENTIMEN NETRAL</th>
+                              <th className="bg-[#EF4444] p-3 border border-white w-1/4">SENTIMEN —</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="text-3xl font-black">
+                              <td className="bg-blue-50 p-4 border border-white text-[#1E3A8A]">{totalBerita.toLocaleString('id-ID')}</td>
+                              <td className="bg-green-50 p-4 border border-white text-[#10B981]">{sentimentCounts.positif.toLocaleString('id-ID')}</td>
+                              <td className="bg-yellow-50 p-4 border border-white text-[#F59E0B]">{sentimentCounts.netral.toLocaleString('id-ID')}</td>
+                              <td className="bg-red-50 p-4 border border-white text-[#EF4444]">{sentimentCounts.negatif.toLocaleString('id-ID')}</td>
+                            </tr>
+                            <tr className="text-xs font-medium">
+                              <td className="bg-blue-50 p-2 border border-white text-blue-800">+12.4% vs bln lalu</td>
+                              <td className="bg-green-50 p-2 border border-white text-green-800">{pctPos}%</td>
+                              <td className="bg-yellow-50 p-2 border border-white text-yellow-800">{pctNeu}%</td>
+                              <td className="bg-red-50 p-2 border border-white text-red-800">{pctNeg}%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
 
-          {/* Cover Section */}
-          {components.cover && (
-            <div className="mb-16 avoid-break">
-              <div className="text-center mb-12">
-                <img 
-                  src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" 
-                  alt="Smiling West Java Logo" 
-                  className="h-20 mx-auto mb-6"
-                  referrerPolicy="no-referrer"
+                      <div className="text-center text-sm">
+                        <p className="mb-1">Indeks Sentimen: <span className={`font-bold ${indeksSentimen > 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>{indeksFormatted} / 1.00</span></p>
+                        <p className="text-gray-500">Media Terpantau: <span className="font-bold text-blue-600">{topMedia.totalUnique} media</span></p>
+                      </div>
+                    </div>
+                  )}
+                </Page>
+
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 1. Ringkasan Eksekutif */}
+            {components.execSummary && (
+              <div className="mb-12">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">1. Ringkasan Eksekutif</h2>
+                <TextareaAutosize 
+                  value={execSummary1}
+                  onChange={(e) => setExecSummary1(e.target.value)}
+                  className="w-full text-sm text-gray-700 mb-6 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
                 />
-                <h3 className="text-sm font-bold text-gray-500 mb-1">DINAS PARIWISATA PROVINSI JAWA BARAT</h3>
-                <p className="text-xs text-gray-400 italic mb-12">Media Intelligence Unit</p>
                 
-                <div className="border-t-4 border-b-4 border-[#1E3A8A] py-6 my-6 relative group">
-                  <input 
-                    type="text" 
-                    value={reportTitle}
-                    onChange={(e) => setReportTitle(e.target.value)}
-                    className="w-full text-2xl font-bold text-center text-[#1E3A8A] bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
-                  />
-                  <input 
-                    type="text" 
-                    value={reportSubtitle}
-                    onChange={(e) => setReportSubtitle(e.target.value)}
-                    className="w-full text-3xl font-black text-center text-gray-800 mt-2 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
-                  />
-                  <input 
-                    type="text" 
-                    value={reportPeriod}
-                    onChange={(e) => setReportPeriod(e.target.value)}
-                    className="w-full text-xl font-bold text-center text-[#3B82F6] mt-4 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded uppercase"
-                  />
-                  <Edit3 className="w-4 h-4 text-gray-400 absolute top-2 right-2 opacity-0 group-hover:opacity-100 edit-icon" />
+                <h3 className="text-lg font-bold text-blue-800 mb-3">1.1 Temuan Utama</h3>
+                <TextareaAutosize 
+                  value={execSummary2}
+                  onChange={(e) => setExecSummary2(e.target.value)}
+                  className="w-full text-sm text-gray-700 mb-4 bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
+                />
+
+                <div className="relative group">
+                  <table className="w-full border-collapse border border-gray-200 text-sm">
+                    <thead>
+                      <tr className="text-white font-bold">
+                        <th className="bg-[#10B981] p-3 border border-white w-1/2 text-left">Hal Menonjol Positif</th>
+                        <th className="bg-[#EF4444] p-3 border border-white w-1/2 text-left">Hal yang Memerlukan Perhatian</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="bg-green-50 p-0 border border-white align-top">
+                          <TextareaAutosize 
+                            value={posSummary}
+                            onChange={(e) => setPosSummary(e.target.value)}
+                            className="w-full h-full min-h-[150px] p-4 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-800"
+                          />
+                        </td>
+                        <td className="bg-red-50 p-0 border border-white align-top">
+                          <TextareaAutosize 
+                            value={negSummary}
+                            onChange={(e) => setNegSummary(e.target.value)}
+                            className="w-full h-full min-h-[150px] p-4 bg-transparent border-none focus:ring-0 focus:outline-none text-gray-800"
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <Edit3 className="w-4 h-4 text-gray-400 absolute -left-6 top-1/2 opacity-0 group-hover:opacity-100 edit-icon" />
                 </div>
               </div>
+            )}
+          </Page>
 
-              {/* Metrics Table */}
-              <div className="mb-8">
-                <table className="w-full text-center border-collapse border border-gray-200">
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 2. Peta Sebaran (Heatmap) */}
+            {components.heatmap && mapData && (
+              <div className="mb-12 page-break">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">2. Peta Sebaran Berita (Heatmap)</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama {reportPeriod}.
+                </p>
+                <div className="h-[400px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0 mb-4">
+                  <MapContainer 
+                    center={[-6.9147, 107.6098]}
+                    zoom={8}
+                    style={{ height: '100%', width: '100%' }}
+                    scrollWheelZoom={false}
+                    zoomControl={false}
+                    dragging={false}
+                  >
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                    />
+                    {mapData.map((loc, idx) => {
+                      const maxCount = Math.max(...mapData.map(d => d.count));
+                      const intensity = loc.count / maxCount;
+                      const radius = 10 + (intensity * 25);
+                      
+                      const r = 255;
+                      const g = Math.floor(255 * (1 - intensity));
+                      const b = 0;
+                      const color = `rgb(${r}, ${g}, ${b})`;
+
+                      return (
+                        <CircleMarker
+                          key={idx}
+                          center={[loc.lat, loc.lng]}
+                          radius={radius}
+                          pathOptions={{ 
+                            fillColor: color, 
+                            fillOpacity: 0.6, 
+                            color: color, 
+                            weight: 1 
+                          }}
+                        >
+                          <LeafletTooltip direction="top" offset={[0, -10]} opacity={1} permanent={intensity > 0.5}>
+                            <div className="text-center">
+                              <div className="font-bold text-gray-800">{loc.name}</div>
+                              <div className="text-xs text-gray-600">{loc.count.toLocaleString('id-ID')} Berita</div>
+                            </div>
+                          </LeafletTooltip>
+                        </CircleMarker>
+                      );
+                    })}
+                  </MapContainer>
+                </div>
+
+                {/* Map Legend - Outside and Centered */}
+                <div className="flex flex-col items-center justify-center py-2 border-t border-gray-100 mt-2">
+                  <div className="text-[10px] font-bold text-gray-500 mb-3 uppercase tracking-widest">Legenda Intensitas Pemberitaan</div>
+                  <div className="flex items-center justify-center gap-8 text-[10px]">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full bg-[rgb(255,0,0)] opacity-60 border border-red-600"></div>
+                      <span className="text-gray-600 font-medium">Sangat Tinggi</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-[rgb(255,128,0)] opacity-60 border border-orange-500"></div>
+                      <span className="text-gray-600 font-medium">Tinggi</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[rgb(255,255,0)] opacity-60 border border-yellow-400"></div>
+                      <span className="text-gray-600 font-medium">Sedang / Rendah</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Page>
+
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 3. Destinasi Wisata */}
+            {components.destinations && (
+              <div className="mb-12 avoid-break">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">3. Destinasi Wisata Paling Banyak Diberitakan</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Berikut adalah destinasi dengan volume pemberitaan tertinggi selama {reportPeriod} berdasarkan data media monitoring:
+                </p>
+                
+                <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="text-white text-xs font-bold">
-                      <th className="bg-[#1E3A8A] p-3 border border-white w-1/4">TOTAL BERITA</th>
-                      <th className="bg-[#10B981] p-3 border border-white w-1/4">SENTIMEN +</th>
-                      <th className="bg-[#F59E0B] p-3 border border-white w-1/4">SENTIMEN NETRAL</th>
-                      <th className="bg-[#EF4444] p-3 border border-white w-1/4">SENTIMEN —</th>
+                    <tr className="text-white font-bold bg-[#1E3A8A]">
+                      <th className="p-2 border border-white w-12 text-center">#</th>
+                      <th className="p-2 border border-white text-left">Destinasi</th>
+                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white text-center">Persentase</th>
+                      <th className="p-2 border border-white text-center">Dominasi Sentimen</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className="text-3xl font-black">
-                      <td className="bg-blue-50 p-4 border border-white text-[#1E3A8A]">{totalBerita.toLocaleString('id-ID')}</td>
-                      <td className="bg-green-50 p-4 border border-white text-[#10B981]">{sentimentCounts.positif.toLocaleString('id-ID')}</td>
-                      <td className="bg-yellow-50 p-4 border border-white text-[#F59E0B]">{sentimentCounts.netral.toLocaleString('id-ID')}</td>
-                      <td className="bg-red-50 p-4 border border-white text-[#EF4444]">{sentimentCounts.negatif.toLocaleString('id-ID')}</td>
-                    </tr>
-                    <tr className="text-xs font-medium">
-                      <td className="bg-blue-50 p-2 border border-white text-blue-800">+12.4% vs bln lalu</td>
-                      <td className="bg-green-50 p-2 border border-white text-green-800">{pctPos}%</td>
-                      <td className="bg-yellow-50 p-2 border border-white text-yellow-800">{pctNeu}%</td>
-                      <td className="bg-red-50 p-2 border border-white text-red-800">{pctNeg}%</td>
-                    </tr>
+                    {topDestinations.slice(0, 8).map((dest, idx) => {
+                      const pct = totalBerita > 0 ? ((dest.count / totalBerita) * 100).toFixed(1) : '0';
+                      const sentiment = idx === 4 ? 'Negatif' : (idx === 2 || idx === 3 || idx === 5) ? 'Netral' : 'Positif';
+                      const sentimentColor = sentiment === 'Positif' ? 'text-[#10B981] bg-green-50' : sentiment === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
+                      
+                      return (
+                        <tr key={idx} className="border-b border-gray-200">
+                          <td className="p-2 text-center font-bold">{idx + 1}</td>
+                          <td className="p-2 font-medium">{dest.name}</td>
+                          <td className="p-2 text-center">{dest.count.toLocaleString('id-ID')}</td>
+                          <td className="p-2 text-center">{pct}%</td>
+                          <td className={`p-2 text-center font-bold ${sentimentColor}`}>{sentiment}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
+            )}
+          </Page>
 
-              <div className="text-center text-sm">
-                <p className="mb-1">Indeks Sentimen: <span className={`font-bold ${indeksSentimen > 0 ? 'text-[#10B981]' : 'text-[#EF4444]'}`}>{indeksFormatted} / 1.00</span></p>
-                <p className="text-gray-500">Media Terpantau: <span className="font-bold text-blue-600">{topMedia.totalUnique} media</span></p>
-              </div>
-            </div>
-          )}
-
-          {/* 1. Ringkasan Eksekutif */}
-          {components.execSummary && (
-            <div className="mb-12">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">1. Ringkasan Eksekutif</h2>
-              <p className="text-sm text-gray-700 mb-6">
-                Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode {reportPeriod}. Data dikumpulkan dari {topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.
-              </p>
-              
-              <h3 className="text-lg font-bold text-blue-800 mb-3">1.1 Temuan Utama</h3>
-              <p className="text-sm text-gray-700 mb-4">
-                Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada {reportPeriod} menunjukkan tren positif dengan total {totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka {indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.
-              </p>
-
-              <div className="relative group">
-                <table className="w-full border-collapse border border-gray-200 text-sm">
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 3. Sumber Media */}
+            {components.media && (
+              <div className="mb-12">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">3. Sumber Media Terbanyak</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Dari {topMedia.totalUnique} media yang dipantau, berikut adalah 10 sumber dengan kontribusi pemberitaan terbesar:
+                </p>
+                
+                <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="text-white font-bold">
-                      <th className="bg-[#10B981] p-3 border border-white w-1/2 text-left">Hal Menonjol Positif</th>
-                      <th className="bg-[#EF4444] p-3 border border-white w-1/2 text-left">Hal yang Memerlukan Perhatian</th>
+                    <tr className="text-white font-bold bg-[#1E3A8A]">
+                      <th className="p-2 border border-white w-12 text-center">#</th>
+                      <th className="p-2 border border-white text-left">Nama Media</th>
+                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white text-center">Porsi</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className="bg-green-50 p-0 border border-white align-top">
-                        <textarea 
-                          value={posSummary}
-                          onChange={(e) => setPosSummary(e.target.value)}
-                          className="w-full h-full min-h-[150px] p-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-gray-800"
-                        />
-                      </td>
-                      <td className="bg-red-50 p-0 border border-white align-top">
-                        <textarea 
-                          value={negSummary}
-                          onChange={(e) => setNegSummary(e.target.value)}
-                          className="w-full h-full min-h-[150px] p-4 bg-transparent border-none focus:ring-0 focus:outline-none resize-none text-gray-800"
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-                <Edit3 className="w-4 h-4 text-gray-400 absolute -left-6 top-1/2 opacity-0 group-hover:opacity-100 edit-icon" />
-              </div>
-            </div>
-          )}
-
-          {/* 2. Peta Sebaran (Heatmap) */}
-          {components.heatmap && mapData && (
-            <div className="mb-12 page-break">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">2. Peta Sebaran Berita (Heatmap)</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama {reportPeriod}.
-              </p>
-              <div className="h-[400px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0">
-                <MapContainer 
-                  center={[-6.9147, 107.6098]}
-                  zoom={8}
-                  style={{ height: '100%', width: '100%' }}
-                  scrollWheelZoom={false}
-                  zoomControl={false}
-                  dragging={false}
-                >
-                  <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                  />
-                  {mapData.map((loc, idx) => {
-                    const maxCount = Math.max(...mapData.map(d => d.count));
-                    const intensity = loc.count / maxCount;
-                    const radius = 10 + (intensity * 25);
-                    
-                    const r = 255;
-                    const g = Math.floor(255 * (1 - intensity));
-                    const b = 0;
-                    const color = `rgb(${r}, ${g}, ${b})`;
-
-                    return (
-                      <CircleMarker
-                        key={idx}
-                        center={[loc.lat, loc.lng]}
-                        radius={radius}
-                        pathOptions={{ 
-                          fillColor: color, 
-                          fillOpacity: 0.6, 
-                          color: color, 
-                          weight: 1 
-                        }}
-                      >
-                        <LeafletTooltip direction="top" offset={[0, -10]} opacity={1} permanent={intensity > 0.5}>
-                          <div className="text-center">
-                            <div className="font-bold text-gray-800">{loc.name}</div>
-                            <div className="text-xs text-gray-600">{loc.count.toLocaleString('id-ID')} Berita</div>
-                          </div>
-                        </LeafletTooltip>
-                      </CircleMarker>
-                    );
-                  })}
-                </MapContainer>
-              </div>
-            </div>
-          )}
-
-          {/* 3. Destinasi Wisata */}
-          {components.destinations && (
-            <div className="mb-12 avoid-break">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">3. Destinasi Wisata Paling Banyak Diberitakan</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Berikut adalah destinasi dengan volume pemberitaan tertinggi selama {reportPeriod} berdasarkan data media monitoring:
-              </p>
-              
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="text-white font-bold bg-[#1E3A8A]">
-                    <th className="p-2 border border-white w-12 text-center">#</th>
-                    <th className="p-2 border border-white text-left">Destinasi</th>
-                    <th className="p-2 border border-white text-center">Jumlah Berita</th>
-                    <th className="p-2 border border-white text-center">Persentase</th>
-                    <th className="p-2 border border-white text-center">Dominasi Sentimen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topDestinations.slice(0, 8).map((dest, idx) => {
-                    const pct = totalBerita > 0 ? ((dest.count / totalBerita) * 100).toFixed(1) : '0';
-                    // Mock sentiment based on index for demonstration, ideally derived from data
-                    const sentiment = idx === 4 ? 'Negatif' : (idx === 2 || idx === 3 || idx === 5) ? 'Netral' : 'Positif';
-                    const sentimentColor = sentiment === 'Positif' ? 'text-[#10B981] bg-green-50' : sentiment === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
-                    
-                    return (
+                    {topMedia.list.slice(0, 10).map((media, idx) => (
                       <tr key={idx} className="border-b border-gray-200">
                         <td className="p-2 text-center font-bold">{idx + 1}</td>
-                        <td className="p-2 font-medium">{dest.name}</td>
-                        <td className="p-2 text-center">{dest.count.toLocaleString('id-ID')}</td>
-                        <td className="p-2 text-center">{pct}%</td>
-                        <td className={`p-2 text-center font-bold ${sentimentColor}`}>{sentiment}</td>
+                        <td className="p-2 font-medium">{media.name}</td>
+                        <td className="p-2 text-center">{media.count.toLocaleString('id-ID')}</td>
+                        <td className="p-2 text-center">{media.pct}%</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Page>
 
-          {/* 3. Sumber Media */}
-          {components.media && (
-            <div className="mb-12">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">3. Sumber Media Terbanyak</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Dari {topMedia.totalUnique} media yang dipantau, berikut adalah 10 sumber dengan kontribusi pemberitaan terbesar:
-              </p>
-              
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="text-white font-bold bg-[#1E3A8A]">
-                    <th className="p-2 border border-white w-12 text-center">#</th>
-                    <th className="p-2 border border-white text-left">Nama Media</th>
-                    <th className="p-2 border border-white text-center">Jumlah Berita</th>
-                    <th className="p-2 border border-white text-center">Porsi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topMedia.list.slice(0, 10).map((media, idx) => (
-                    <tr key={idx} className="border-b border-gray-200">
-                      <td className="p-2 text-center font-bold">{idx + 1}</td>
-                      <td className="p-2 font-medium">{media.name}</td>
-                      <td className="p-2 text-center">{media.count.toLocaleString('id-ID')}</td>
-                      <td className="p-2 text-center">{media.pct}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* 4. Berita Utama */}
-          {components.news && (
-            <div className="mb-12">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">4. Berita Utama Bulan Ini</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Berikut adalah berita dengan dampak dan perhatian media tertinggi selama periode {reportPeriod}:
-              </p>
-              
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="text-white font-bold bg-[#1E3A8A]">
-                    <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
-                    <th className="p-2 border border-white text-left">Media</th>
-                    <th className="p-2 border border-white text-center">Tanggal</th>
-                    <th className="p-2 border border-white text-center">Sentimen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentNews.slice(0, 8).map((news, idx) => {
-                    const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
-                    return (
-                      <tr key={idx} className="border-b border-gray-200">
-                        <td className="p-2 pr-4">{news.judul}</td>
-                        <td className="p-2">{news.media}</td>
-                        <td className="p-2 text-center whitespace-nowrap">{news.tanggal.split(',')[0]}</td>
-                        <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* 5. Rekomendasi Strategis */}
-          {components.recommendations && (
-            <div className="mb-12 relative group">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">5. Rekomendasi Strategis</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Berdasarkan hasil analisis pemberitaan {reportPeriod}, berikut rekomendasi strategis untuk meningkatkan citra pariwisata Jawa Barat dan menangani isu yang berkembang di media:
-              </p>
-              
-              <textarea 
-                value={recommendations}
-                onChange={(e) => setRecommendations(e.target.value)}
-                className="w-full min-h-[250px] p-4 bg-gray-50 border border-gray-200 rounded text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-y"
-              />
-              <Edit3 className="w-4 h-4 text-gray-400 absolute -left-6 top-1/2 opacity-0 group-hover:opacity-100 edit-icon" />
-            </div>
-          )}
-
-          {/* 7. Lampiran Berita */}
-          {components.newsAttachment && (
-            <div className="mb-12 page-break">
-              <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
-              <p className="text-sm text-gray-700 mb-4">
-                Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
-              </p>
-              
-              <table className="w-full border-collapse text-xs">
-                <thead>
-                  <tr className="text-white font-bold bg-[#1E3A8A]">
-                    <th className="p-2 border border-white w-8 text-center">No</th>
-                    <th className="p-2 border border-white text-left">Tanggal</th>
-                    <th className="p-2 border border-white text-left">Media</th>
-                    <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
-                    <th className="p-2 border border-white text-center">Sentimen</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentNews.slice(0, 50).map((news, idx) => {
-                    const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
-                    return (
-                      <tr key={idx} className="border-b border-gray-200 avoid-break">
-                        <td className="p-2 text-center">{idx + 1}</td>
-                        <td className="p-2 whitespace-nowrap">{news.tanggal.split(',')[0]}</td>
-                        <td className="p-2">{news.media}</td>
-                        <td className="p-2 pr-4">
-                          <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            {news.judul}
-                          </a>
-                        </td>
-                        <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {recentNews.length > 50 && (
-                <p className="text-xs text-gray-500 mt-4 italic text-center">
-                  *Menampilkan 50 berita terbaru dari total {recentNews.length} berita.
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 4. Berita Utama */}
+            {components.news && (
+              <div className="mb-12">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">4. Berita Utama Bulan Ini</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Berikut adalah berita dengan dampak dan perhatian media tertinggi selama periode {reportPeriod}:
                 </p>
-              )}
-            </div>
-          )}
+                
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="text-white font-bold bg-[#1E3A8A]">
+                      <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
+                      <th className="p-2 border border-white text-left">Media</th>
+                      <th className="p-2 border border-white text-center">Tanggal</th>
+                      <th className="p-2 border border-white text-center">Sentimen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentNews.slice(0, 8).map((news, idx) => {
+                      const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
+                      return (
+                        <tr key={idx} className="border-b border-gray-200">
+                          <td className="p-2 pr-4">{news.judul}</td>
+                          <td className="p-2">{news.media}</td>
+                          <td className="p-2 text-center whitespace-nowrap">{news.tanggal}</td>
+                          <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Page>
 
-          {/* Document Footer */}
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 5. Rekomendasi Strategis */}
+            {components.recommendations && (
+              <div className="mb-12 relative group">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">5. Rekomendasi Strategis</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Berdasarkan hasil analisis pemberitaan {reportPeriod}, berikut rekomendasi strategis untuk meningkatkan citra pariwisata Jawa Barat dan menangani isu yang berkembang di media:
+                </p>
+                
+                <TextareaAutosize 
+                  value={recommendations}
+                  onChange={(e) => setRecommendations(e.target.value)}
+                  className="w-full min-h-[250px] p-4 bg-gray-50 border border-gray-200 rounded text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                />
+                <Edit3 className="w-4 h-4 text-gray-400 absolute -left-6 top-1/2 opacity-0 group-hover:opacity-100 edit-icon" />
+              </div>
+            )}
+          </Page>
+
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+            {/* 7. Lampiran Berita */}
+            {components.newsAttachment && (
+              <div className="mb-12 page-break">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
+                </p>
+                
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="text-white font-bold bg-[#1E3A8A]">
+                      <th className="p-2 border border-white w-8 text-center">No</th>
+                      <th className="p-2 border border-white text-left">Tanggal</th>
+                      <th className="p-2 border border-white text-left">Media</th>
+                      <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
+                      <th className="p-2 border border-white text-center">Sentimen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentNews.map((news, idx) => {
+                      const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
+                      return (
+                        <tr key={idx} className="border-b border-gray-200 avoid-break">
+                          <td className="p-2 text-center">{idx + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{news.tanggal}</td>
+                          <td className="p-2">{news.media}</td>
+                          <td className="p-2 pr-4">
+                            <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {news.judul}
+                            </a>
+                          </td>
+                          <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {recentNews.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-4 italic text-center">
+                    *Menampilkan seluruh {recentNews.length} berita terpantau.
+                  </p>
+                )}
+              </div>
+            )}
+          </Page>
+              </>
+            );
+          })()}
+          <div className="block print:hidden border-t border-gray-200 pt-2 mt-8 text-center text-xs text-gray-400">
+            Media Intelligence 209
+          </div>
+
+          {/* Document Footer (Print) */}
           <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 text-center">
-            Dihasilkan oleh Media Intelligence Unit - Dinas Pariwisata Provinsi Jawa Barat
+            Media Intelligence 209
           </div>
 
         </div>

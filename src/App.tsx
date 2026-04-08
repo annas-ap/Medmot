@@ -491,7 +491,7 @@ export default function App() {
 
   // Real Recent News
   const recentNews = useMemo(() => {
-    return displayData.slice(0, 50).map((row, i) => {
+    return displayData.map((row, i) => {
       const sentimenRaw = String(row['SENTIMEN'] || '').trim();
       let sentimen = 'Netral';
       if (sentimenRaw.toLowerCase() === 'positif') sentimen = 'Positif';
@@ -976,7 +976,7 @@ export default function App() {
                 recentNews={recentNews}
                 topDestinations={topDestinations}
                 mapData={mapData}
-                period={timeFilter}
+                timeFilter={timeFilter}
               />
             ) : activeView === 'settings' ? (
               <div className="space-y-6">
