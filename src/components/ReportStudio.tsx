@@ -21,6 +21,9 @@ interface ReportStudioProps {
   timeFilter: string;
 }
 
+import { pdf } from '@react-pdf/renderer';
+import { ReportPDF } from './ReportPDF';
+
 export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, timeFilter }: ReportStudioProps) {
   const getPeriodText = (filter: string) => {
     const now = new Date();
@@ -140,8 +143,35 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
     </>
   );
 
-  const exportPDF = () => {
-    window.print();
+  const exportPDF = async () => {
+    setIsExporting(true);
+    try {
+      const blob = await pdf(
+        <ReportPDF 
+          components={components}
+          reportTitle={reportTitle}
+          reportSubtitle={reportSubtitle}
+          reportPeriod={reportPeriod}
+          execSummary1={execSummary1}
+          execSummary2={execSummary2}
+          posSummary={posSummary}
+          negSummary={negSummary}
+          recommendations={recommendations}
+          totalBerita={totalBerita}
+          pctPos={pctPos}
+          pctNeg={pctNeg}
+          topDestinations={topDestinations}
+          topMedia={topMedia}
+          recentNews={recentNews}
+        />
+      ).toBlob();
+      saveAs(blob, "Laporan_Media_Monitoring.pdf");
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      alert('Gagal mengekspor PDF. Silakan coba lagi.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const exportDOCX = async () => {
