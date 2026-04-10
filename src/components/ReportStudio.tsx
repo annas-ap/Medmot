@@ -3,6 +3,7 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
 import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
 import { saveAs } from 'file-saver';
@@ -75,21 +76,31 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   const [execSummary1, setExecSummary1] = useState(`Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode ${timeFilter.toUpperCase()}. Data dikumpulkan dari ${topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.`);
   const [execSummary2, setExecSummary2] = useState(`Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada periode ${timeFilter.toUpperCase()} menunjukkan tren positif dengan total ${totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka ${indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.`);
   
+  const [posSummary, setPosSummary] = useState('');
+  const [negSummary, setNegSummary] = useState('');
+  const [recommendations, setRecommendations] = useState('');
+
   // Update period and summaries when timeFilter changes
   React.useEffect(() => {
     const period = getPeriodText(timeFilter);
     setReportPeriod(period);
     setExecSummary1(`Laporan ini menyajikan hasil monitoring dan analisis pemberitaan media terkait pariwisata Jawa Barat selama periode ${timeFilter.toUpperCase()}. Data dikumpulkan dari ${topMedia.totalUnique} sumber media mencakup media online, cetak, dan penyiaran.`);
     setExecSummary2(`Secara keseluruhan, pemberitaan pariwisata Jawa Barat pada periode ${timeFilter.toUpperCase()} menunjukkan tren positif dengan total ${totalBerita.toLocaleString('id-ID')} berita. Indeks sentimen berada di angka ${indeksFormatted} dari skala 1.00, mencerminkan dominasi narasi positif di media.`);
-  }, [timeFilter, totalBerita, topMedia.totalUnique, indeksFormatted]);
-  
-  const [posSummary, setPosSummary] = useState('Volume pemberitaan pariwisata Jawa Barat meningkat 12.4% dibanding bulan sebelumnya.\n\nDominasi sentimen positif (54.2%) menunjukkan citra pariwisata Jabar yang baik di mata media.\n\nKota Bandung dan Kab. Bogor konsisten menjadi destinasi dengan pemberitaan tertinggi.');
-  const [negSummary, setNegSummary] = useState('Isu kebersihan di beberapa destinasi memerlukan penanganan segera.\n\nKemacetan jalur wisata terus menjadi sorotan negatif di media.\n\nInfrastruktur jalan menuju beberapa destinasi selatan masih belum memenuhi harapan wisatawan.');
-  
-  const [recommendations, setRecommendations] = useState('1. Penanganan Kebersihan Destinasi Wisata\nTingkatkan program kebersihan di destinasi populer. Libatkan komunitas lokal dan UMKM. Pasang fasilitas kebersihan yang memadai dan terapkan sanksi tegas.\n\n2. Peningkatan Infrastruktur Aksesibilitas\nKoordinasikan dengan dinas terkait untuk percepatan perbaikan jalan menuju destinasi yang sering dikeluhkan. Kembangkan alternatif transportasi publik wisata.\n\n3. Optimalisasi Kampanye Digital\nPerkuat kehadiran di platform TikTok dan Instagram Reels. Kolaborasi dengan konten kreator lokal. Targetkan wisatawan mancanegara melalui kampanye berbahasa Inggris.');
+    
+    const topDest1 = topDestinations[0]?.name || 'Beberapa destinasi';
+    const topDest2 = topDestinations[1]?.name || 'wilayah lainnya';
+    const topMediaName = topMedia.list[0]?.name || 'media utama';
+
+    setPosSummary(`Volume pemberitaan pariwisata Jawa Barat mencapai ${totalBerita.toLocaleString('id-ID')} berita pada periode ini.\n\nDominasi sentimen positif (${pctPos}%) menunjukkan citra pariwisata Jabar yang baik di mata media.\n\n${topDest1} dan ${topDest2} konsisten menjadi destinasi dengan pemberitaan tertinggi.`);
+    
+    setNegSummary(`Terdapat ${pctNeg}% pemberitaan bersentimen negatif yang perlu menjadi perhatian.\n\nBeberapa isu negatif umumnya terkait dengan infrastruktur, kemacetan, atau kebersihan di kawasan wisata tertentu.\n\nPemantauan lebih lanjut diperlukan pada destinasi yang mengalami lonjakan sentimen negatif.`);
+    
+    setRecommendations(`1. Akselerasi Promosi Digital\nTingkatkan konten visual di media sosial khususnya untuk wilayah ${topDest1} dan ${topDest2} yang sedang mendapat sorotan tinggi.\n\n2. Mitigasi Isu Negatif\nSiapkan strategi komunikasi untuk merespons narasi negatif terkait kemacetan atau infrastruktur di jalur wisata utama.\n\n3. Kolaborasi Media\nPerkuat kerja sama dengan ${topMediaName} dan media lokal lainnya untuk mengamplifikasi kampanye pariwisata positif (Jabar Smile).`);
+
+  }, [timeFilter, totalBerita, topMedia.totalUnique, indeksFormatted, pctPos, pctNeg, topDestinations, topMedia.list]);
 
   const Page = ({ children, header, footer, currentPage, totalPages }: { children: React.ReactNode, header?: React.ReactNode, footer?: React.ComponentType<{ currentPage: number, totalPages: number }>, currentPage: number, totalPages: number }) => (
-    <div className="bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
+    <div className="report-page bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
       {header}
       <div className="flex-1">
         {children}
@@ -266,12 +277,24 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
               new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.LEFT, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Destinasi", bold: true, color: "FFFFFF" })] })] }),
               new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Jumlah Berita", bold: true, color: "FFFFFF" })] })] }),
               new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Persentase", bold: true, color: "FFFFFF" })] })] }),
+              new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "Sentimen", bold: true, color: "FFFFFF" })] })] }),
             ]
           })
         ];
         
         topDestinations.slice(0, 8).forEach((dest, index) => {
           const pct = totalBerita > 0 ? ((dest.count / totalBerita) * 100).toFixed(1) : '0';
+          const sentiment = dest.sentiment || 'Netral';
+          let sentimentColor = "F59E0B";
+          let sentimentFill = "FFFBEB";
+          if (sentiment === 'Positif') {
+            sentimentColor = "10B981";
+            sentimentFill = "ECFDF5";
+          } else if (sentiment === 'Negatif') {
+            sentimentColor = "EF4444";
+            sentimentFill = "FEF2F2";
+          }
+
           destRows.push(
             new TableRow({
               children: [
@@ -279,6 +302,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                 new TableCell({ children: [new Paragraph({ text: dest.name, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ children: [new Paragraph({ text: dest.count.toLocaleString('id-ID'), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ children: [new Paragraph({ text: `${pct}%`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ shading: { fill: sentimentFill }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: sentiment, bold: true, color: sentimentColor })] })] }),
               ]
             })
           );
@@ -891,7 +915,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   <tbody>
                     {topDestinations.slice(0, 8).map((dest, idx) => {
                       const pct = totalBerita > 0 ? ((dest.count / totalBerita) * 100).toFixed(1) : '0';
-                      const sentiment = idx === 4 ? 'Negatif' : (idx === 2 || idx === 3 || idx === 5) ? 'Netral' : 'Positif';
+                      const sentiment = dest.sentiment || 'Netral';
                       const sentimentColor = sentiment === 'Positif' ? 'text-[#10B981] bg-green-50' : sentiment === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
                       
                       return (

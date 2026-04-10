@@ -422,21 +422,41 @@ export default function App() {
 
   // Top Destinations (Group by KAB/KOTA)
   const topDestinations = useMemo(() => {
-    const destCounts: Record<string, number> = {};
+    const destCounts: Record<string, { count: number, positif: number, negatif: number, netral: number }> = {};
     displayData.forEach(row => {
       const dests = String(row['KAB/KOTA'] || '').split(',');
+      const sentimenRaw = String(row['SENTIMEN'] || '').trim().toLowerCase();
+      
       dests.forEach(d => {
         const cleanDest = d.trim();
         if (cleanDest && cleanDest !== 'undefined') {
-          destCounts[cleanDest] = (destCounts[cleanDest] || 0) + 1;
+          if (!destCounts[cleanDest]) {
+            destCounts[cleanDest] = { count: 0, positif: 0, negatif: 0, netral: 0 };
+          }
+          destCounts[cleanDest].count += 1;
+          
+          if (sentimenRaw === 'positif') destCounts[cleanDest].positif += 1;
+          else if (sentimenRaw === 'negatif') destCounts[cleanDest].negatif += 1;
+          else destCounts[cleanDest].netral += 1;
         }
       });
     });
     
     const sorted = Object.entries(destCounts)
-      .map(([name, count]) => ({ name, count, trend: 'neutral' as const }))
+      .map(([name, stats]) => {
+        let dominantSentiment = 'Netral';
+        if (stats.positif > stats.negatif && stats.positif >= stats.netral) dominantSentiment = 'Positif';
+        else if (stats.negatif > stats.positif && stats.negatif >= stats.netral) dominantSentiment = 'Negatif';
+        
+        return { 
+          name, 
+          count: stats.count, 
+          trend: 'neutral' as const,
+          sentiment: dominantSentiment
+        };
+      })
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
+      .slice(0, 8); // Changed from 5 to 8 to support the report table
       
     const max = sorted.length > 0 ? sorted[0].count : 1;
     return sorted.map(d => ({ ...d, max }));
