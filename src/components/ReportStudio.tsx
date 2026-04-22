@@ -3,12 +3,11 @@ import TextareaAutosize from 'react-textarea-autosize';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
 import { toPng } from 'html-to-image';
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx';
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, ExternalHyperlink, Header, Footer, PageNumber } from 'docx';
 import { saveAs } from 'file-saver';
 import pptxgen from 'pptxgenjs';
-import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, CircleMarker, Tooltip as LeafletTooltip, Popup } from 'react-leaflet';
 
 interface ReportStudioProps {
   data: any[];
@@ -21,8 +20,46 @@ interface ReportStudioProps {
   timeFilter: string;
 }
 
-import { pdf } from '@react-pdf/renderer';
-import { ReportPDF } from './ReportPDF';
+const Page = ({ children, header, footer, currentPage, totalPages }: { children: React.ReactNode, header?: React.ReactNode, footer?: React.ComponentType<{ currentPage: number, totalPages: number }>, currentPage: number, totalPages: number }) => (
+  <div className="bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
+    {header}
+    <div className="flex-1">
+      {children}
+    </div>
+    {footer && React.createElement(footer, { currentPage, totalPages })}
+  </div>
+);
+
+const ReportPageHeader = ({ reportPeriod, setReportPeriod }: { reportPeriod: string, setReportPeriod: (val: string) => void }) => (
+  <>
+    <div className="border-b-2 border-[#1E3A8A] pb-2 mb-12 flex justify-between items-end avoid-break">
+      <div className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider">
+        Laporan Digital News Monitoring SWJ
+      </div>
+      <div className="text-xs text-gray-500 relative group">
+        <input 
+          type="text" 
+          value={reportPeriod}
+          onChange={(e) => setReportPeriod(e.target.value)}
+          className="w-full text-right bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
+        />
+      </div>
+    </div>
+  </>
+);
+
+const ReportPageFooter = ({ currentPage, totalPages }: { currentPage: number, totalPages: number }) => (
+  <>
+    <div className="block print:hidden border-t border-gray-200 pt-2 mt-8 flex justify-between items-center text-xs text-gray-400">
+      <span>Media Intelligence 209</span>
+      <span>hal {currentPage} dari {totalPages}</span>
+    </div>
+    <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 flex justify-between items-center">
+      <span>Media Intelligence 209</span>
+      <span>hal {currentPage} dari {totalPages}</span>
+    </div>
+  </>
+);
 
 export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, timeFilter }: ReportStudioProps) {
   const getPeriodText = (filter: string) => {
@@ -59,6 +96,8 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
     recommendations: true,
     newsAttachment: true
   });
+
+  const [selectedMapRegion, setSelectedMapRegion] = useState<any>(null);
 
   const [isExporting, setIsExporting] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
@@ -102,73 +141,29 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
 
   }, [timeFilter, totalBerita, topMedia.totalUnique, indeksFormatted, pctPos, pctNeg, topDestinations, topMedia.list]);
 
-  const Page = ({ children, header, footer, currentPage, totalPages }: { children: React.ReactNode, header?: React.ReactNode, footer?: React.ComponentType<{ currentPage: number, totalPages: number }>, currentPage: number, totalPages: number }) => (
-    <div className="report-page bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
-      {header}
-      <div className="flex-1">
-        {children}
-      </div>
-      {footer && React.createElement(footer, { currentPage, totalPages })}
-    </div>
-  );
-
-  const Header = () => (
-    <>
-      <div className="border-b-2 border-[#1E3A8A] pb-2 mb-12 flex justify-between items-end avoid-break">
-        <div className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider">
-          Laporan Digital News Monitoring SWJ
-        </div>
-        <div className="text-xs text-gray-500 relative group">
-          <input 
-            type="text" 
-            value={reportPeriod}
-            onChange={(e) => setReportPeriod(e.target.value)}
-            className="w-full text-right bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
-          />
-        </div>
-      </div>
-    </>
-  );
-
-  const Footer = ({ currentPage, totalPages }: { currentPage: number, totalPages: number }) => (
-    <>
-      <div className="block print:hidden border-t border-gray-200 pt-2 mt-8 flex justify-between items-center text-xs text-gray-400">
-        <span>Media Intelligence 209</span>
-        <span>hal {currentPage} dari {totalPages}</span>
-      </div>
-      <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 flex justify-between items-center">
-        <span>Media Intelligence 209</span>
-        <span>hal {currentPage} dari {totalPages}</span>
-      </div>
-    </>
-  );
-
   const exportPDF = async () => {
+    if (!reportRef.current) return;
     setIsExporting(true);
     try {
-      const blob = await pdf(
-        <ReportPDF 
-          components={components}
-          reportTitle={reportTitle}
-          reportSubtitle={reportSubtitle}
-          reportPeriod={reportPeriod}
-          execSummary1={execSummary1}
-          execSummary2={execSummary2}
-          posSummary={posSummary}
-          negSummary={negSummary}
-          recommendations={recommendations}
-          totalBerita={totalBerita}
-          pctPos={pctPos}
-          pctNeg={pctNeg}
-          topDestinations={topDestinations}
-          topMedia={topMedia}
-          recentNews={recentNews}
-        />
-      ).toBlob();
-      saveAs(blob, "Laporan_Media_Monitoring.pdf");
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      alert('Gagal mengekspor PDF. Silakan coba lagi.');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pages = reportRef.current.querySelectorAll('.w-\\[210mm\\]');
+      
+      for (let i = 0; i < pages.length; i++) {
+        const pageEl = pages[i] as HTMLElement;
+        const dataUrl = await toPng(pageEl, { quality: 0.95, backgroundColor: '#ffffff', pixelRatio: 2 });
+        const imgProps = pdf.getImageProperties(dataUrl);
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+        
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      }
+      
+      pdf.save(`Laporan_SWJ_${timeFilter}.pdf`);
+    } catch (err) {
+      console.error('Error exporting PDF:', err);
     } finally {
       setIsExporting(false);
     }
@@ -177,6 +172,17 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   const exportDOCX = async () => {
     setIsExporting(true);
     try {
+      // Capture Heatmap if active
+      let heatmapImage: Uint8Array | null = null;
+      if (components.heatmap) {
+        const heatmapEl = document.getElementById('report-map-container');
+        if (heatmapEl) {
+          const dataUrl = await toPng(heatmapEl, { quality: 0.95 });
+          const base64Data = dataUrl.split(',')[1];
+          heatmapImage = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+        }
+      }
+
       const children: any[] = [];
 
       // Cover
@@ -212,18 +218,18 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           rows: [
             new TableRow({
               children: [
-                new TableCell({ shading: { fill: "1E3A8A" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "TOTAL BERITA", bold: true, color: "FFFFFF", size: 20 })] })] }),
-                new TableCell({ shading: { fill: "10B981" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN +", bold: true, color: "FFFFFF", size: 20 })] })] }),
-                new TableCell({ shading: { fill: "F59E0B" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN NETRAL", bold: true, color: "FFFFFF", size: 20 })] })] }),
-                new TableCell({ shading: { fill: "EF4444" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN -", bold: true, color: "FFFFFF", size: 20 })] })] }),
+                new TableCell({ shading: { fill: "1E3A8A" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "TOTAL BERITA", bold: true, color: "FFFFFF", size: 18 })] })] }),
+                new TableCell({ shading: { fill: "10B981" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN +", bold: true, color: "FFFFFF", size: 18 })] })] }),
+                new TableCell({ shading: { fill: "F59E0B" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN NETRAL", bold: true, color: "FFFFFF", size: 18 })] })] }),
+                new TableCell({ shading: { fill: "EF4444" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: "SENTIMEN -", bold: true, color: "FFFFFF", size: 18 })] })] }),
               ]
             }),
             new TableRow({
               children: [
-                new TableCell({ shading: { fill: "EFF6FF" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: totalBerita.toLocaleString('id-ID'), bold: true, color: "1E3A8A", size: 48 })] })] }),
-                new TableCell({ shading: { fill: "ECFDF5" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.positif.toLocaleString('id-ID'), bold: true, color: "10B981", size: 48 })] })] }),
-                new TableCell({ shading: { fill: "FFFBEB" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.netral.toLocaleString('id-ID'), bold: true, color: "F59E0B", size: 48 })] })] }),
-                new TableCell({ shading: { fill: "FEF2F2" }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 200, after: 200 }, children: [new TextRun({ text: sentimentCounts.negatif.toLocaleString('id-ID'), bold: true, color: "EF4444", size: 48 })] })] }),
+                new TableCell({ shading: { fill: "EFF6FF" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 150, after: 150 }, children: [new TextRun({ text: totalBerita.toLocaleString('id-ID'), bold: true, color: "1E3A8A", size: 40 })] })] }),
+                new TableCell({ shading: { fill: "ECFDF5" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 150, after: 150 }, children: [new TextRun({ text: sentimentCounts.positif.toLocaleString('id-ID'), bold: true, color: "10B981", size: 40 })] })] }),
+                new TableCell({ shading: { fill: "FFFBEB" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 150, after: 150 }, children: [new TextRun({ text: sentimentCounts.netral.toLocaleString('id-ID'), bold: true, color: "F59E0B", size: 40 })] })] }),
+                new TableCell({ shading: { fill: "FEF2F2" }, verticalAlign: "center", children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 150, after: 150 }, children: [new TextRun({ text: sentimentCounts.negatif.toLocaleString('id-ID'), bold: true, color: "EF4444", size: 40 })] })] }),
               ]
             })
           ],
@@ -289,7 +295,23 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           spacing: { before: 400, after: 200 },
           children: [new TextRun({ text: "2. Peta Sebaran Berita (Heatmap)", bold: true, color: "1E3A8A", size: 32 })] 
         }));
-        children.push(new Paragraph({ text: `Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama ${reportPeriod}. (Visualisasi peta tersedia pada versi PDF/Web).`, spacing: { after: 200 } }));
+        children.push(new Paragraph({ text: `Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama ${reportPeriod}:`, spacing: { after: 200 } }));
+        
+        if (heatmapImage) {
+          children.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 200, after: 400 },
+            children: [
+              new ImageRun({
+                data: heatmapImage,
+                transformation: {
+                  width: 550,
+                  height: 300,
+                },
+              }),
+            ],
+          }));
+        }
       }
 
       // Destinations
@@ -431,7 +453,27 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
           newsRows.push(
             new TableRow({
               children: [
-                new TableCell({ children: [new Paragraph({ text: item.judul || item.title, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ 
+                  children: [
+                    new Paragraph({ 
+                      spacing: { before: 100, after: 100 },
+                      children: item.url ? [
+                        new ExternalHyperlink({
+                          children: [
+                            new TextRun({
+                              text: item.judul || item.title,
+                              color: "1E40AF",
+                              underline: {},
+                            }),
+                          ],
+                          link: item.url,
+                        }),
+                      ] : [
+                        new TextRun({ text: item.judul || item.title }),
+                      ],
+                    }),
+                  ],
+                }),
                 new TableCell({ children: [new Paragraph({ text: item.media || item.domain, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ children: [new Paragraph({ text: (item.tanggal || item.published_at || ""), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ shading: { fill: sentimentFill }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: item.sentimen || item.sentiment, bold: true, color: sentimentColor })] })] }),
@@ -501,7 +543,27 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                 new TableCell({ children: [new Paragraph({ text: `${index + 1}`, alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ children: [new Paragraph({ text: (item.tanggal || item.published_at || ""), alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 } })] }),
                 new TableCell({ children: [new Paragraph({ text: item.media || item.domain, spacing: { before: 100, after: 100 } })] }),
-                new TableCell({ children: [new Paragraph({ text: item.judul || item.title, spacing: { before: 100, after: 100 } })] }),
+                new TableCell({ 
+                  children: [
+                    new Paragraph({ 
+                      spacing: { before: 100, after: 100 },
+                      children: item.url ? [
+                        new ExternalHyperlink({
+                          children: [
+                            new TextRun({
+                              text: item.judul || item.title,
+                              color: "1E40AF",
+                              underline: {},
+                            }),
+                          ],
+                          link: item.url,
+                        }),
+                      ] : [
+                        new TextRun({ text: item.judul || item.title }),
+                      ],
+                    }),
+                  ],
+                }),
                 new TableCell({ shading: { fill: sentimentFill }, children: [new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 100, after: 100 }, children: [new TextRun({ text: item.sentimen || item.sentiment, bold: true, color: sentimentColor })] })] }),
               ]
             })
@@ -524,7 +586,63 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
 
       const doc = new Document({
         sections: [{
-          properties: {},
+          properties: {
+            page: {
+              margin: {
+                top: 720,
+                right: 720,
+                bottom: 720,
+                left: 720,
+              },
+            },
+          },
+          headers: {
+            default: new Header({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Media Intelligence 209 - Jawa Barat",
+                      color: "9CA3AF",
+                      size: 18,
+                    }),
+                  ],
+                  alignment: AlignmentType.RIGHT,
+                }),
+              ],
+            }),
+          },
+          footers: {
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: "Halaman ",
+                      color: "9CA3AF",
+                      size: 18,
+                    }),
+                    new TextRun({
+                      children: [PageNumber.CURRENT],
+                      color: "9CA3AF",
+                      size: 18,
+                    }),
+                    new TextRun({
+                      text: " dari ",
+                      color: "9CA3AF",
+                      size: 18,
+                    }),
+                    new TextRun({
+                      children: [PageNumber.TOTAL_PAGES],
+                      color: "9CA3AF",
+                      size: 18,
+                    }),
+                  ],
+                  alignment: AlignmentType.CENTER,
+                }),
+              ],
+            }),
+          },
           children: children
         }]
       });
@@ -616,6 +734,9 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             color: #9ca3af;
             border-top: 1px solid #e5e7eb;
             padding-top: 5px;
+          }
+          .leaflet-control-container {
+            display: none !important;
           }
         }
       `}} />
@@ -722,7 +843,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             let pageCount = 0;
             return (
               <>
-                <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+                <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
                   {/* Cover Section */}
                   {components.cover && (
                     <div className="mb-16 avoid-break">
@@ -795,7 +916,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   )}
                 </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 1. Ringkasan Eksekutif */}
             {components.execSummary && (
               <div className="mb-12">
@@ -846,7 +967,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 2. Peta Sebaran (Heatmap) */}
             {components.heatmap && mapData && (
               <div className="mb-12 page-break">
@@ -854,14 +975,14 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                 <p className="text-sm text-gray-700 mb-4">
                   Peta berikut menunjukkan intensitas pemberitaan pariwisata di berbagai kabupaten/kota di Jawa Barat selama {reportPeriod}.
                 </p>
-                <div className="h-[400px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0 mb-4">
+                <div id="report-map-container" className="h-[400px] w-full rounded-lg overflow-hidden border border-gray-200 relative z-0 mb-4">
                   <MapContainer 
                     center={[-6.9147, 107.6098]}
                     zoom={8}
-                    style={{ height: '100%', width: '100%' }}
-                    scrollWheelZoom={false}
-                    zoomControl={false}
-                    dragging={false}
+                    style={{ height: '100%', width: '100%', zIndex: 0 }}
+                    scrollWheelZoom={true}
+                    zoomControl={true}
+                    dragging={true}
                   >
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -888,17 +1009,69 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                             color: color, 
                             weight: 1 
                           }}
+                          eventHandlers={{ click: () => setSelectedMapRegion(loc) }}
                         >
-                          <LeafletTooltip direction="top" offset={[0, -10]} opacity={1} permanent={intensity > 0.5}>
-                            <div className="text-center">
-                              <div className="font-bold text-gray-800">{loc.name}</div>
+                          <LeafletTooltip direction="top" offset={[0, -10]} opacity={1}>
+                            <div className="text-center p-0.5">
+                              <div className="font-bold text-gray-800 text-sm mb-0.5 capitalize">{loc.name}</div>
                               <div className="text-xs text-gray-600">{loc.count.toLocaleString('id-ID')} Berita</div>
+                              {loc.dominantSentiment && (
+                                <div className={`text-[10px] font-bold mt-1 px-2 py-0.5 rounded-full inline-block ${
+                                  loc.dominantSentiment === 'Positif' ? 'bg-green-100 text-green-700' : 
+                                  loc.dominantSentiment === 'Negatif' ? 'bg-red-100 text-red-700' : 
+                                  'bg-yellow-100 text-yellow-700'
+                                }`}>
+                                  {loc.dominantSentiment}
+                                </div>
+                              )}
+                              <div className="text-[9px] text-gray-400 mt-1.5 border-t pt-1 border-gray-100">Klik untuk rincian lengkap</div>
                             </div>
                           </LeafletTooltip>
                         </CircleMarker>
                       );
                     })}
                   </MapContainer>
+
+                  {/* Custom Info Panel for Selected Region */}
+                  {selectedMapRegion && (
+                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md p-5 rounded-xl shadow-xl border border-gray-100 z-[1000] min-w-[200px]" contentEditable={false}>
+                      <button 
+                        onClick={() => setSelectedMapRegion(null)}
+                        className="absolute top-2 right-2 flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
+                      >
+                        ×
+                      </button>
+                      <h3 className="font-bold text-gray-900 border-b border-gray-200 pb-2 mb-3 mr-4 capitalize text-sm">{selectedMapRegion.name}</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between items-center bg-gray-50 p-1.5 rounded">
+                          <span className="text-gray-600 text-xs">Total Berita</span>
+                          <span className="font-black text-gray-800">{selectedMapRegion.count.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-green-600 p-1.5 hover:bg-green-50 rounded transition-colors">
+                          <span className="text-xs font-medium">Positif</span>
+                          <span className="font-bold">{selectedMapRegion.positif || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-yellow-600 p-1.5 hover:bg-yellow-50 rounded transition-colors">
+                          <span className="text-xs font-medium">Netral</span>
+                          <span className="font-bold">{selectedMapRegion.netral || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-red-600 p-1.5 hover:bg-red-50 rounded transition-colors">
+                          <span className="text-xs font-medium">Negatif</span>
+                          <span className="font-bold">{selectedMapRegion.negatif || 0}</span>
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-col items-center">
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Sentimen Dominan</span>
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                            selectedMapRegion.dominantSentiment === 'Positif' ? 'bg-green-100 text-green-700' : 
+                            selectedMapRegion.dominantSentiment === 'Negatif' ? 'bg-red-100 text-red-700' : 
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {selectedMapRegion.dominantSentiment || 'Netral'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Map Legend - Outside and Centered */}
@@ -923,7 +1096,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 3. Destinasi Wisata */}
             {components.destinations && (
               <div className="mb-12 avoid-break">
@@ -932,14 +1105,14 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   Berikut adalah destinasi dengan volume pemberitaan tertinggi selama {reportPeriod} berdasarkan data media monitoring:
                 </p>
                 
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse text-sm table-fixed">
                   <thead>
                     <tr className="text-white font-bold bg-[#1E3A8A]">
-                      <th className="p-2 border border-white w-12 text-center">#</th>
-                      <th className="p-2 border border-white text-left">Destinasi</th>
-                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
-                      <th className="p-2 border border-white text-center">Persentase</th>
-                      <th className="p-2 border border-white text-center">Dominasi Sentimen</th>
+                      <th className="p-2 border border-white w-[5%] text-center">#</th>
+                      <th className="p-2 border border-white w-[40%] text-left">Destinasi</th>
+                      <th className="p-2 border border-white w-[20%] text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white w-[15%] text-center">Persentase</th>
+                      <th className="p-2 border border-white w-[20%] text-center">Dominasi Sentimen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -964,7 +1137,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 3. Sumber Media */}
             {components.media && (
               <div className="mb-12">
@@ -973,13 +1146,13 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   Dari {topMedia.totalUnique} media yang dipantau, berikut adalah 10 sumber dengan kontribusi pemberitaan terbesar:
                 </p>
                 
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse text-sm table-fixed">
                   <thead>
                     <tr className="text-white font-bold bg-[#1E3A8A]">
-                      <th className="p-2 border border-white w-12 text-center">#</th>
-                      <th className="p-2 border border-white text-left">Nama Media</th>
-                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
-                      <th className="p-2 border border-white text-center">Porsi</th>
+                      <th className="p-2 border border-white w-[5%] text-center">#</th>
+                      <th className="p-2 border border-white w-[55%] text-left">Nama Media</th>
+                      <th className="p-2 border border-white w-[25%] text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white w-[15%] text-center">Porsi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -997,7 +1170,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 4. Berita Utama */}
             {components.news && (
               <div className="mb-12">
@@ -1033,7 +1206,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
             {/* 5. Rekomendasi Strategis */}
             {components.recommendations && (
               <div className="mb-12 relative group">
@@ -1052,52 +1225,66 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          <Page currentPage={++pageCount} totalPages={activeComponents} header={<Header />} footer={Footer}>
-            {/* 7. Lampiran Berita */}
-            {components.newsAttachment && (
-              <div className="mb-12 page-break">
-                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
-                <p className="text-sm text-gray-700 mb-4">
-                  Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
-                </p>
-                
-                <table className="w-full border-collapse text-xs">
-                  <thead>
-                    <tr className="text-white font-bold bg-[#1E3A8A]">
-                      <th className="p-2 border border-white w-8 text-center">No</th>
-                      <th className="p-2 border border-white text-left">Tanggal</th>
-                      <th className="p-2 border border-white text-left">Media</th>
-                      <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
-                      <th className="p-2 border border-white text-center">Sentimen</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentNews.map((news, idx) => {
-                      const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
-                      return (
-                        <tr key={idx} className="border-b border-gray-200 avoid-break">
-                          <td className="p-2 text-center">{idx + 1}</td>
-                          <td className="p-2 whitespace-nowrap">{news.tanggal}</td>
-                          <td className="p-2">{news.media}</td>
-                          <td className="p-2 pr-4">
-                            <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {news.judul}
-                            </a>
-                          </td>
-                          <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
+          {components.newsAttachment && (
+            (() => {
+              const ITEMS_PER_PAGE = 25;
+              const pages = [];
+              for (let i = 0; i < recentNews.length; i += ITEMS_PER_PAGE) {
+                pages.push(recentNews.slice(i, i + ITEMS_PER_PAGE));
+              }
+
+              return pages.map((pageNews, pageIndex) => (
+                <Page key={`lampiran-${pageIndex}`} currentPage={++pageCount} totalPages={activeComponents + pages.length - 1} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
+                  <div className="mb-12 page-break">
+                    {pageIndex === 0 && (
+                      <>
+                        <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
+                        <p className="text-sm text-gray-700 mb-4">
+                          Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
+                        </p>
+                      </>
+                    )}
+                    
+                    <table className="w-full border-collapse text-xs table-fixed">
+                      <thead>
+                        <tr className="text-white font-bold bg-[#1E3A8A]">
+                          <th className="p-2 border border-white w-[5%] text-center">No</th>
+                          <th className="p-2 border border-white w-[15%] text-left">Tanggal</th>
+                          <th className="p-2 border border-white w-[20%] text-left">Media</th>
+                          <th className="p-2 border border-white w-[45%] text-left">Judul Berita</th>
+                          <th className="p-2 border border-white w-[15%] text-center">Sentimen</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-                {recentNews.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-4 italic text-center">
-                    *Menampilkan seluruh {recentNews.length} berita terpantau.
-                  </p>
-                )}
-              </div>
-            )}
-          </Page>
+                      </thead>
+                      <tbody>
+                        {pageNews.map((news, idx) => {
+                          const actualIdx = (pageIndex * ITEMS_PER_PAGE) + idx;
+                          const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
+                          return (
+                            <tr key={idx} className="border-b border-gray-200 avoid-break">
+                              <td className="p-2 text-center">{actualIdx + 1}</td>
+                              <td className="p-2 whitespace-nowrap">{news.tanggal}</td>
+                              <td className="p-2">{news.media}</td>
+                              <td className="p-2 pr-4">
+                                <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                                  {news.judul}
+                                </a>
+                              </td>
+                              <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    {pageIndex === pages.length - 1 && recentNews.length > 0 && (
+                      <p className="text-xs text-gray-500 mt-4 italic text-center">
+                        *Menampilkan seluruh {recentNews.length} berita terpantau.
+                      </p>
+                    )}
+                  </div>
+                </Page>
+              ));
+            })()
+          )}
               </>
             );
           })()}

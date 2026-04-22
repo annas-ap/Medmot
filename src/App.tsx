@@ -480,18 +480,26 @@ export default function App() {
       'kabupaten majalengka': [-6.8361, 108.2260],
     };
 
-    const destCounts: Record<string, number> = {};
+    const destCounts: Record<string, { count: number, positif: number, negatif: number, netral: number }> = {};
     displayData.forEach(row => {
       const dests = String(row['KAB/KOTA'] || '').split(',');
+      const sentimenRaw = String(row['SENTIMEN'] || '').trim().toLowerCase();
+      
       dests.forEach(d => {
         const cleanDest = d.trim();
         if (cleanDest && cleanDest !== 'undefined') {
-          destCounts[cleanDest] = (destCounts[cleanDest] || 0) + 1;
+          if (!destCounts[cleanDest]) {
+            destCounts[cleanDest] = { count: 0, positif: 0, negatif: 0, netral: 0 };
+          }
+          destCounts[cleanDest].count += 1;
+          if (sentimenRaw === 'positif') destCounts[cleanDest].positif += 1;
+          else if (sentimenRaw === 'negatif') destCounts[cleanDest].negatif += 1;
+          else destCounts[cleanDest].netral += 1;
         }
       });
     });
 
-    return Object.entries(destCounts).map(([name, count]) => {
+    return Object.entries(destCounts).map(([name, stats]) => {
       const key = name.toLowerCase();
       // Find matching coordinates, default to center of Jabar if not found
       let lat = -6.9204;
@@ -505,7 +513,20 @@ export default function App() {
         }
       }
       
-      return { name, lat, lng, count };
+      let dominantSentiment = 'Netral';
+      if (stats.positif > stats.negatif && stats.positif >= stats.netral) dominantSentiment = 'Positif';
+      else if (stats.negatif > stats.positif && stats.negatif >= stats.netral) dominantSentiment = 'Negatif';
+      
+      return { 
+        name, 
+        lat, 
+        lng, 
+        count: stats.count,
+        positif: stats.positif,
+        negatif: stats.negatif,
+        netral: stats.netral,
+        dominantSentiment
+      };
     });
   }, [displayData]);
 

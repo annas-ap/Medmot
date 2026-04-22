@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, Globe, MapPin, TrendingUp, ExternalLink, ChevronLeft, ChevronRight, Newspaper } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,10 +10,15 @@ interface NewsDetailPageProps {
 }
 
 export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews }: NewsDetailPageProps) {
-  // Scroll to top when news changes
+  const [visibleCount, setVisibleCount] = useState(10);
+  
+  // Scroll to top and reset count when news changes
   useEffect(() => {
     window.scrollTo(0, 0);
+    setVisibleCount(10);
   }, [news]);
+
+  const actualRelatedNews = relatedNews.filter(n => n.id !== news.id);
 
   return (
     <div className="min-h-screen bg-[#F3F4F6] dark:bg-gray-950 text-gray-800 dark:text-gray-200 font-sans transition-colors duration-300">
@@ -166,7 +171,7 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                 className="flex overflow-x-auto gap-4 sm:gap-6 pb-6 snap-x snap-mandatory hide-scrollbar -mx-6 px-6 sm:-mx-8 sm:px-8 items-stretch"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {relatedNews.filter(n => n.id !== news.id).slice(0, 10).map((related, idx) => (
+                {actualRelatedNews.slice(0, visibleCount).map((related, idx) => (
                   <motion.div 
                     key={related.id} 
                     initial={{ opacity: 0, x: 20 }}
@@ -223,6 +228,30 @@ export default function NewsDetailPage({ news, onBack, relatedNews, onSelectNews
                     </div>
                   </motion.div>
                 ))}
+
+                {actualRelatedNews.length > visibleCount && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    whileHover={{ scale: 0.98 }}
+                    className="group cursor-pointer flex flex-col justify-center items-center bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all w-[240px] snap-start shrink-0 h-auto" 
+                    onClick={() => {
+                      setVisibleCount(prev => prev + 10);
+                      setTimeout(() => {
+                        const container = document.getElementById('related-news-carousel');
+                        if (container) container.scrollBy({ left: 300, behavior: 'smooth' });
+                      }, 100);
+                    }}
+                  >
+                    <div className="flex flex-col items-center gap-3 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <div className="w-12 h-12 rounded-full bg-white dark:bg-gray-700 shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ChevronRight className="w-6 h-6" />
+                      </div>
+                      <span className="font-bold">Muat Lebih Banyak</span>
+                      <span className="text-[10px]">{actualRelatedNews.length - visibleCount} berita tersisa</span>
+                    </div>
+                  </motion.div>
+                )}
               </div>
               <style>{`
                 .hide-scrollbar::-webkit-scrollbar {
