@@ -150,7 +150,18 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       
       for (let i = 0; i < pages.length; i++) {
         const pageEl = pages[i] as HTMLElement;
-        const dataUrl = await toPng(pageEl, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: 3 });
+        // Menggunakan toPng karena html-to-image mendukung oklch bawaan browser
+        const dataUrl = await toPng(pageEl, { 
+          quality: 1.0, 
+          pixelRatio: 2.5, 
+          backgroundColor: '#ffffff',
+          cacheBust: true,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left'
+          }
+        });
+        
         const imgProps = pdf.getImageProperties(dataUrl);
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
@@ -164,6 +175,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       pdf.save(`Laporan_SWJ_${timeFilter}.pdf`);
     } catch (err) {
       console.error('Error exporting PDF:', err);
+      alert('Gagal mengekspor PDF. Pastikan tidak ada blokir gambar dari browser.');
     } finally {
       setIsExporting(false);
     }
