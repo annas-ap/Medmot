@@ -150,7 +150,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       
       for (let i = 0; i < pages.length; i++) {
         const pageEl = pages[i] as HTMLElement;
-        const dataUrl = await toPng(pageEl, { quality: 0.95, backgroundColor: '#ffffff', pixelRatio: 2 });
+        const dataUrl = await toPng(pageEl, { quality: 1.0, backgroundColor: '#ffffff', pixelRatio: 3 });
         const imgProps = pdf.getImageProperties(dataUrl);
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
@@ -806,7 +806,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             className="w-full flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white py-2.5 px-4 rounded-xl font-medium transition-colors disabled:opacity-50"
           >
             <FileText className="w-4 h-4" />
-            {isExporting ? 'Mengekspor...' : 'Export to PDF'}
+            {isExporting ? 'Memproses...' : 'Download PDF'}
           </button>
           
           <button 
@@ -1105,14 +1105,14 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   Berikut adalah destinasi dengan volume pemberitaan tertinggi selama {reportPeriod} berdasarkan data media monitoring:
                 </p>
                 
-                <table className="w-full border-collapse text-sm table-fixed">
+                <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="text-white font-bold bg-[#1E3A8A]">
-                      <th className="p-2 border border-white w-[5%] text-center">#</th>
-                      <th className="p-2 border border-white w-[40%] text-left">Destinasi</th>
-                      <th className="p-2 border border-white w-[20%] text-center">Jumlah Berita</th>
-                      <th className="p-2 border border-white w-[15%] text-center">Persentase</th>
-                      <th className="p-2 border border-white w-[20%] text-center">Dominasi Sentimen</th>
+                      <th className="p-2 border border-white w-12 text-center">#</th>
+                      <th className="p-2 border border-white text-left">Destinasi</th>
+                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white text-center">Persentase</th>
+                      <th className="p-2 border border-white text-center">Dominasi Sentimen</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1146,13 +1146,13 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                   Dari {topMedia.totalUnique} media yang dipantau, berikut adalah 10 sumber dengan kontribusi pemberitaan terbesar:
                 </p>
                 
-                <table className="w-full border-collapse text-sm table-fixed">
+                <table className="w-full border-collapse text-sm">
                   <thead>
                     <tr className="text-white font-bold bg-[#1E3A8A]">
-                      <th className="p-2 border border-white w-[5%] text-center">#</th>
-                      <th className="p-2 border border-white w-[55%] text-left">Nama Media</th>
-                      <th className="p-2 border border-white w-[25%] text-center">Jumlah Berita</th>
-                      <th className="p-2 border border-white w-[15%] text-center">Porsi</th>
+                      <th className="p-2 border border-white w-12 text-center">#</th>
+                      <th className="p-2 border border-white text-left">Nama Media</th>
+                      <th className="p-2 border border-white text-center">Jumlah Berita</th>
+                      <th className="p-2 border border-white text-center">Porsi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1225,66 +1225,52 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
             )}
           </Page>
 
-          {components.newsAttachment && (
-            (() => {
-              const ITEMS_PER_PAGE = 25;
-              const pages = [];
-              for (let i = 0; i < recentNews.length; i += ITEMS_PER_PAGE) {
-                pages.push(recentNews.slice(i, i + ITEMS_PER_PAGE));
-              }
-
-              return pages.map((pageNews, pageIndex) => (
-                <Page key={`lampiran-${pageIndex}`} currentPage={++pageCount} totalPages={activeComponents + pages.length - 1} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
-                  <div className="mb-12 page-break">
-                    {pageIndex === 0 && (
-                      <>
-                        <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
-                        <p className="text-sm text-gray-700 mb-4">
-                          Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
-                        </p>
-                      </>
-                    )}
-                    
-                    <table className="w-full border-collapse text-xs table-fixed">
-                      <thead>
-                        <tr className="text-white font-bold bg-[#1E3A8A]">
-                          <th className="p-2 border border-white w-[5%] text-center">No</th>
-                          <th className="p-2 border border-white w-[15%] text-left">Tanggal</th>
-                          <th className="p-2 border border-white w-[20%] text-left">Media</th>
-                          <th className="p-2 border border-white w-[45%] text-left">Judul Berita</th>
-                          <th className="p-2 border border-white w-[15%] text-center">Sentimen</th>
+          <Page currentPage={++pageCount} totalPages={activeComponents} header={<ReportPageHeader reportPeriod={reportPeriod} setReportPeriod={setReportPeriod} />} footer={ReportPageFooter}>
+            {/* 7. Lampiran Berita */}
+            {components.newsAttachment && (
+              <div className="mb-12 page-break">
+                <h2 className="text-xl font-bold text-[#1E3A8A] border-b border-gray-300 pb-2 mb-4">7. Lampiran: Daftar Berita</h2>
+                <p className="text-sm text-gray-700 mb-4">
+                  Berikut adalah daftar lengkap berita yang dipantau selama periode {reportPeriod}:
+                </p>
+                
+                <table className="w-full border-collapse text-xs">
+                  <thead>
+                    <tr className="text-white font-bold bg-[#1E3A8A]">
+                      <th className="p-2 border border-white w-8 text-center">No</th>
+                      <th className="p-2 border border-white text-left">Tanggal</th>
+                      <th className="p-2 border border-white text-left">Media</th>
+                      <th className="p-2 border border-white text-left w-1/2">Judul Berita</th>
+                      <th className="p-2 border border-white text-center">Sentimen</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recentNews.map((news, idx) => {
+                      const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
+                      return (
+                        <tr key={idx} className="border-b border-gray-200 avoid-break">
+                          <td className="p-2 text-center">{idx + 1}</td>
+                          <td className="p-2 whitespace-nowrap">{news.tanggal}</td>
+                          <td className="p-2">{news.media}</td>
+                          <td className="p-2 pr-4">
+                            <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {news.judul}
+                            </a>
+                          </td>
+                          <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {pageNews.map((news, idx) => {
-                          const actualIdx = (pageIndex * ITEMS_PER_PAGE) + idx;
-                          const sentimentColor = news.sentimen === 'Positif' ? 'text-[#10B981] bg-green-50' : news.sentimen === 'Negatif' ? 'text-[#EF4444] bg-red-50' : 'text-[#F59E0B] bg-yellow-50';
-                          return (
-                            <tr key={idx} className="border-b border-gray-200 avoid-break">
-                              <td className="p-2 text-center">{actualIdx + 1}</td>
-                              <td className="p-2 whitespace-nowrap">{news.tanggal}</td>
-                              <td className="p-2">{news.media}</td>
-                              <td className="p-2 pr-4">
-                                <a href={news.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                                  {news.judul}
-                                </a>
-                              </td>
-                              <td className={`p-2 text-center font-bold ${sentimentColor}`}>{news.sentimen}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                    {pageIndex === pages.length - 1 && recentNews.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-4 italic text-center">
-                        *Menampilkan seluruh {recentNews.length} berita terpantau.
-                      </p>
-                    )}
-                  </div>
-                </Page>
-              ));
-            })()
-          )}
+                      );
+                    })}
+                  </tbody>
+                </table>
+                {recentNews.length > 0 && (
+                  <p className="text-xs text-gray-500 mt-4 italic text-center">
+                    *Menampilkan seluruh {recentNews.length} berita terpantau.
+                  </p>
+                )}
+              </div>
+            )}
+          </Page>
               </>
             );
           })()}
