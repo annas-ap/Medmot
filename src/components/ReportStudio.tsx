@@ -21,7 +21,7 @@ interface ReportStudioProps {
 }
 
 const Page = ({ children, header, footer, currentPage, totalPages }: { children: React.ReactNode, header?: React.ReactNode, footer?: React.ComponentType<{ currentPage: number, totalPages: number }>, currentPage: number, totalPages: number }) => (
-  <div className="bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto print:shadow-none print:mb-0 print:p-0 print:min-h-0 print:w-full flex flex-col">
+  <div className="bg-white w-[210mm] min-h-[297mm] shadow-lg p-[20mm] mb-8 mx-auto flex flex-col">
     {header}
     <div className="flex-1">
       {children}
@@ -30,35 +30,41 @@ const Page = ({ children, header, footer, currentPage, totalPages }: { children:
   </div>
 );
 
-const ReportPageHeader = ({ reportPeriod, setReportPeriod }: { reportPeriod: string, setReportPeriod: (val: string) => void }) => (
-  <>
+const ReportPageHeader = ({ reportPeriod, setReportPeriod }: { reportPeriod: string, setReportPeriod: (val: string) => void }) => {
+  const [editing, setEditing] = useState(false);
+  return (
     <div className="border-b-2 border-[#1E3A8A] pb-2 mb-12 flex justify-between items-end avoid-break">
       <div className="text-xs font-bold text-[#1E3A8A] uppercase tracking-wider">
         Laporan Digital News Monitoring SWJ
       </div>
       <div className="text-xs text-gray-500 relative group">
-        <input 
-          type="text" 
-          value={reportPeriod}
-          onChange={(e) => setReportPeriod(e.target.value)}
-          className="w-full text-right bg-transparent border-none focus:ring-0 focus:outline-none hover:bg-gray-50 rounded"
-        />
+        {editing ? (
+          <input 
+            autoFocus
+            type="text" 
+            value={reportPeriod}
+            onChange={(e) => setReportPeriod(e.target.value)}
+            onBlur={() => setEditing(false)}
+            className="w-full text-right bg-transparent border-b border-gray-300 focus:ring-0 focus:outline-none"
+          />
+        ) : (
+          <span
+            onClick={() => setEditing(true)}
+            className="cursor-text hover:bg-gray-50 rounded px-1"
+          >
+            {reportPeriod}
+          </span>
+        )}
       </div>
     </div>
-  </>
-);
+  );
+};
 
 const ReportPageFooter = ({ currentPage, totalPages }: { currentPage: number, totalPages: number }) => (
-  <>
-    <div className="block print:hidden border-t border-gray-200 pt-2 mt-8 flex justify-between items-center text-xs text-gray-400">
-      <span>Media Intelligence 209</span>
-      <span>hal {currentPage} dari {totalPages}</span>
-    </div>
-    <div className="hidden print:block print-footer text-xs text-gray-400 border-t border-gray-200 pt-2 mt-4 flex justify-between items-center">
-      <span>Media Intelligence 209</span>
-      <span>hal {currentPage} dari {totalPages}</span>
-    </div>
-  </>
+  <div className="border-t border-gray-200 pt-2 mt-8 flex justify-between items-center text-xs text-gray-400">
+    <span>Media Intelligence 209</span>
+    <span>hal {currentPage} dari {totalPages}</span>
+  </div>
 );
 
 export default function ReportStudio({ data, trendData, sentimentCounts, topMedia, recentNews, topDestinations, mapData, timeFilter }: ReportStudioProps) {
@@ -144,6 +150,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   const exportPDF = async () => {
     if (!reportRef.current) return;
     setIsExporting(true);
+    document.body.classList.add('is-exporting');
     try {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pages = reportRef.current.querySelectorAll('.w-\\[210mm\\]');
@@ -177,6 +184,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       console.error('Error exporting PDF:', err);
       alert('Gagal mengekspor PDF. Pastikan tidak ada blokir gambar dari browser.');
     } finally {
+      document.body.classList.remove('is-exporting');
       setIsExporting(false);
     }
   };
@@ -684,6 +692,9 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
   return (
     <div className="flex flex-col lg:flex-row h-[calc(100vh-80px)] overflow-hidden bg-gray-50 dark:bg-gray-950 print:h-auto print:bg-white print:overflow-visible">
       <style dangerouslySetInnerHTML={{__html: `
+        .is-exporting .edit-icon { display: none !important; }
+        .is-exporting textarea { border: none !important; background: transparent !important; }
+        .is-exporting input { border: none !important; background: transparent !important; }
         @media print {
           body * {
             visibility: hidden;
@@ -846,7 +857,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
         <div 
           id="printable-report"
           ref={reportRef}
-          className="bg-white w-full max-w-[210mm] min-h-full shadow-2xl text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
+          className="bg-white w-[210mm] mx-auto min-h-full shadow-2xl text-gray-900 font-sans print:shadow-none print:max-w-none print:min-h-0 print:p-0 relative"
           style={{ color: '#111827' }} // Force dark text for PDF
         >
         
