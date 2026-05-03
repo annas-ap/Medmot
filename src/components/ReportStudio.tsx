@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
-import { toPng } from 'html-to-image';
+import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, ExternalHyperlink, Header, Footer, PageNumber } from 'docx';
 import { saveAs } from 'file-saver';
@@ -151,23 +151,23 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
     if (!reportRef.current) return;
     setIsExporting(true);
     document.body.classList.add('is-exporting');
+    
+    // Memberi sedikit waktu jeda agar CSS 'is-exporting' terefleksi di DOM
+    await new Promise(resolve => setTimeout(resolve, 150));
+
     try {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pages = reportRef.current.querySelectorAll('.w-\\[210mm\\]');
       
       for (let i = 0; i < pages.length; i++) {
         const pageEl = pages[i] as HTMLElement;
-        // Menggunakan toPng karena html-to-image mendukung oklch bawaan browser
-        const dataUrl = await toPng(pageEl, { 
-          quality: 1.0, 
-          pixelRatio: 2.5, 
-          backgroundColor: '#ffffff',
-          cacheBust: true,
-          style: {
-            transform: 'scale(1)',
-            transformOrigin: 'top left'
-          }
+        const canvas = await html2canvas(pageEl, { 
+          scale: 2, 
+          useCORS: true, 
+          allowTaint: false,
+          backgroundColor: '#ffffff'
         });
+        const dataUrl = canvas.toDataURL('image/png');
         
         const imgProps = pdf.getImageProperties(dataUrl);
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -182,7 +182,9 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       pdf.save(`Laporan_SWJ_${timeFilter}.pdf`);
     } catch (err) {
       console.error('Error exporting PDF:', err);
-      alert('Gagal mengekspor PDF. Pastikan tidak ada blokir gambar dari browser.');
+      // Fallback
+      alert('Mode unduh langsung terblokir oleh keamanan browser (CORS). Dialihkan ke mode Print otomatis, mohon pilih "Save as PDF".');
+      window.print();
     } finally {
       document.body.classList.remove('is-exporting');
       setIsExporting(false);
