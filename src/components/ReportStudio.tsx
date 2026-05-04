@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import TextareaAutosize from 'react-textarea-autosize';
 import { motion } from 'motion/react';
 import { FileDown, FileText, Settings, FileImage, FileCode2, CheckSquare, Square, Edit3, Sparkles, MapIcon } from 'lucide-react';
-import html2canvas from 'html2canvas';
+import { toPng } from 'html-to-image';
 import jsPDF from 'jspdf';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle, ImageRun, ExternalHyperlink, Header, Footer, PageNumber } from 'docx';
 import { saveAs } from 'file-saver';
@@ -161,13 +161,16 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
       
       for (let i = 0; i < pages.length; i++) {
         const pageEl = pages[i] as HTMLElement;
-        const canvas = await html2canvas(pageEl, { 
-          scale: 2, 
-          useCORS: true, 
-          allowTaint: false,
-          backgroundColor: '#ffffff'
+        const dataUrl = await toPng(pageEl, { 
+          quality: 1.0, 
+          pixelRatio: 2.5, 
+          backgroundColor: '#ffffff',
+          cacheBust: true,
+          style: {
+            transform: 'scale(1)',
+            transformOrigin: 'top left'
+          }
         });
-        const dataUrl = canvas.toDataURL('image/png');
         
         const imgProps = pdf.getImageProperties(dataUrl);
         const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -874,10 +877,10 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                     <div className="mb-16 avoid-break">
                       <div className="text-center mb-12">
                         <img 
-                          src="https://smilingwestjava.jabarprov.go.id/ic-logo.svg" 
+                          src="/ic-logo.svg" 
                           alt="Smiling West Java Logo" 
                           className="h-20 mx-auto mb-6"
-                          referrerPolicy="no-referrer"
+                          crossOrigin="anonymous"
                         />
                         <h3 className="text-sm font-bold text-gray-500 mb-1">DINAS PARIWISATA PROVINSI JAWA BARAT</h3>
                         <p className="text-xs text-gray-400 italic mb-12">Media Intelligence 209</p>
@@ -1012,6 +1015,7 @@ export default function ReportStudio({ data, trendData, sentimentCounts, topMedi
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                       url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                      crossOrigin="anonymous"
                     />
                     {mapData.map((loc, idx) => {
                       const maxCount = Math.max(...mapData.map(d => d.count));
